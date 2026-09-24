@@ -7,11 +7,17 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node db/seed.js",
+    "seed:coordinators": "node scripts/seed-coordinators-warehouses.js",
+    "accounts:list": "node scripts/list-all-accounts.js",
     "backup": "node db/backup.js",
     "db:init": "node db/init.js",
     "db:import-sqlite": "node db/import-sqlite.js",
     "test": "node --test tests/*.test.js",
     "verify": "node verify.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RazerJC/employee-tracking-system.git"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
