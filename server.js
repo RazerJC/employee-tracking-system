@@ -222,30 +222,6 @@ app.use((err, req, res, next) => {
 async function start(port = PORT) {
     await initializeDb();
     await createInitialAdmin();
-    
-    // Ensure HR account exists
-    const db = getDb();
-    const hrAccount = await db.prepare("SELECT id FROM users WHERE email = 'hr'").get();
-    if (!hrAccount) {
-        const bcrypt = require('bcryptjs');
-        const hrHash = bcrypt.hashSync('hr', 12);
-        await db.prepare(
-            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, created_at, updated_at)
-             VALUES ('hr', ?, 'HR Staff', 'HR', 'active', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
-        ).run(hrHash);
-    }
-
-    // Ensure all coordinators and warehouses from roster are synchronized
-    const coordCount = await db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'COORDINATOR'").get();
-    if (!coordCount || coordCount.count < 50) {
-        try {
-            const { seedCoordinatorsAndWarehouses } = require('./scripts/seed-coordinators-warehouses');
-            await seedCoordinatorsAndWarehouses();
-        } catch (e) {
-            console.error('Coordinators sync error on start:', e.message);
-        }
-    }
-
     await sessionStore.onReady();
     return app.listen(port, () => {
         console.log(`TAASCOR Attendance Tracking System (ATS) running on http://localhost:${PORT}`);
