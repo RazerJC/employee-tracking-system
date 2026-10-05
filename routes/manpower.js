@@ -104,16 +104,23 @@ router.post('/', requireAuth, async (req, res) => {
     const requestId = result.lastInsertRowid;
 
     // Insert position breakdown
-    if (positions && typeof positions === 'object') {
+    // Note: form sends positions[p_<id>] to avoid qs re-indexing numeric keys as arrays
+    if (positions && typeof positions === 'object' && !Array.isArray(positions)) {
         const posInsert = db.prepare(`
             INSERT INTO manpower_request_positions (request_id, position_id, quantity_requested)
             VALUES (?, ?, ?)
         `);
 
-        for (const [posIdStr, qtyStr] of Object.entries(positions)) {
+        for (const [rawKey, qtyStr] of Object.entries(positions)) {
+            // Strip optional p_ prefix so both p_1 and 1 work
+            const cleanKey = String(rawKey).replace(/^p_/, '');
             const qty = parseInt(qtyStr);
-            if (qty > 0) {
-                (await posInsert.run(requestId, parseInt(posIdStr), qty));
+            const posId = parseInt(cleanKey);
+            if (qty > 0 && posId) {
+                const posExists = (await db.prepare('SELECT id FROM positions WHERE id = ?').get(posId));
+                if (posExists) {
+                    (await posInsert.run(requestId, posId, qty));
+                }
             }
         }
     }
@@ -405,7 +412,7 @@ router.post('/:id/confirm-arrival', requireAuth, async (req, res) => {
         (await db.prepare(`
             INSERT INTO employee_schedules (employee_id, work_date, shift_start, shift_end, is_rest_day, created_by, created_at)
             VALUES (?, ?, ?, ?, 0, ?, UTC_TIMESTAMP())
-        ON DUPLICATE KEY UPDATE shift_start = VALUES(shift_start), shift_end = VALUES(shift_end), is_rest_day = VALUES(is_rest_day)
+        ON CONFLICT(employee_id, work_date) DO UPDATE SET shift_start = excluded.shift_start, shift_end = excluded.shift_end, is_rest_day = excluded.is_rest_day
         `).run(employeeId, request.deployment_date, shift_start, shift_end, user.id));
     }
 
@@ -455,7 +462,8 @@ router.post('/:id/claim', requireAuth, async (req,res) => {
  if(req.session.user.role !== 'HR') return res.status(403).render('error',{title:'Access Denied',message:'Only HR can accept a manpower request.',code:403});
  const db=getDb(), id=Number(req.params.id)||0;
  const claimed=await db.transaction(async()=>{
-  const request=await db.prepare('SELECT id,status,requested_by FROM manpower_requests WHERE id=? FOR UPDATE').get(id);
+  // SQLite does not support FOR UPDATE - just a regular SELECT
+  const request=await db.prepare('SELECT id,status,requested_by FROM manpower_requests WHERE id=?').get(id);
   if(!request || ['filled','declined','cancelled'].includes(request.status)) return false;
   if(await db.prepare('SELECT request_id FROM manpower_request_handlers WHERE request_id=?').get(id)) return false;
   await db.prepare('INSERT INTO manpower_request_handlers (request_id,hr_id) VALUES (?,?)').run(id,req.session.user.id);
@@ -467,5 +475,43 @@ router.post('/:id/claim', requireAuth, async (req,res) => {
  })();
  req.flash(claimed?'success':'warning',claimed?'You are now handling this request.':'This request is already assigned or closed.');
  res.redirect('/manpower/'+id);
+});
+
+// POST /manpower/:id/delete  (Coordinator own requests; HR/Admin any request)
+router.post('/:id/delete', requireAuth, async (req, res) => {
+    const user = req.session.user;
+    const db = getDb();
+    const id = parseInt(req.params.id);
+
+    const request = await db.prepare('SELECT * FROM manpower_requests WHERE id = ?').get(id);
+    if (!request) {
+        req.flash('error', 'Request not found.');
+        return res.redirect('/manpower');
+    }
+
+    // Access control: coordinator can only delete their own; HR/Admin can delete any
+    const isOwner = user.role === 'COORDINATOR' && request.requested_by === user.id;
+    const isHRAdmin = ['HR', 'HEAD_HR', 'ADMIN'].includes(user.role);
+    if (!isOwner && !isHRAdmin) {
+        return res.status(403).render('error', { title: 'Access Denied', message: 'You cannot delete this request.', code: 403 });
+    }
+
+    // Only allow delete if not yet filled/under deployment
+    if (['filled'].includes(request.status)) {
+        req.flash('error', 'Cannot delete a request that has already been filled.');
+        return res.redirect(`/manpower/${id}`);
+    }
+
+    await db.transaction(async () => {
+        await db.prepare('DELETE FROM manpower_allocations WHERE request_id = ?').run(id);
+        await db.prepare('DELETE FROM manpower_request_positions WHERE request_id = ?').run(id);
+        await db.prepare('DELETE FROM manpower_request_entries WHERE request_id = ?').run(id);
+        await db.prepare('DELETE FROM manpower_request_handlers WHERE request_id = ?').run(id);
+        await db.prepare('DELETE FROM manpower_requests WHERE id = ?').run(id);
+    })();
+
+    await logAction(user.id, 'DELETE_MANPOWER_REQUEST', 'manpower_requests', id, { reason: 'User deleted request' });
+    req.flash('success', `Manpower Request #${id} has been deleted.`);
+    res.redirect('/manpower');
 });
 module.exports = router;

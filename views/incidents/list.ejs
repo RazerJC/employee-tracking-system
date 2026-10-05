@@ -1,0 +1,192 @@
+<%- include('../partials/layout-top') %>
+
+<div class="page-header">
+    <div>
+        <h2>Incident Management Hub</h2>
+        <div class="breadcrumb">
+            <span>Workplace Safety, Disciplinary Issues & Operational Incidents</span>
+        </div>
+    </div>
+    <div>
+        <a href="/incidents/new" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+            ⚠️ File Incident Report
+        </a>
+    </div>
+</div>
+
+<!-- Quick Stats Summary Cards -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid #2563eb;">
+        <div style="font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Total Incidents</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: #1e293b; margin-top: 4px;"><%= stats.total %></div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">Recorded incidents</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid #ef4444;">
+        <div style="font-size: 0.85rem; color: #ef4444; font-weight: 600; text-transform: uppercase;">Critical / Major</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: #ef4444; margin-top: 4px;"><%= stats.critical %></div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">Urgent attention needed</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid #f59e0b;">
+        <div style="font-size: 0.85rem; color: #f59e0b; font-weight: 600; text-transform: uppercase;">Under Investigation</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: #f59e0b; margin-top: 4px;"><%= stats.investigating %></div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">Being reviewed by HR</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid #10b981;">
+        <div style="font-size: 0.85rem; color: #10b981; font-weight: 600; text-transform: uppercase;">Resolved / Closed</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: #10b981; margin-top: 4px;"><%= stats.resolved %></div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">Actions completed</div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<form method="GET" action="/incidents" class="filter-bar" style="background: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;">
+    <div class="filter-group" style="flex: 1; min-width: 200px;">
+        <label for="q" style="font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block;">Search</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="Search ref, title, person, or detail..." value="<%= searchQuery %>">
+    </div>
+
+    <div class="filter-group" style="min-width: 150px;">
+        <label for="status" style="font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block;">Status</label>
+        <select id="status" name="status" class="form-control" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            <option value="reported" <%= statusFilter === 'reported' ? 'selected' : '' %>>Reported</option>
+            <option value="under_investigation" <%= statusFilter === 'under_investigation' ? 'selected' : '' %>>Under Investigation</option>
+            <option value="hr_action_taken" <%= statusFilter === 'hr_action_taken' ? 'selected' : '' %>>HR Action Taken</option>
+            <option value="resolved" <%= statusFilter === 'resolved' ? 'selected' : '' %>>Resolved</option>
+            <option value="closed" <%= statusFilter === 'closed' ? 'selected' : '' %>>Closed</option>
+        </select>
+    </div>
+
+    <div class="filter-group" style="min-width: 140px;">
+        <label for="severity" style="font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block;">Severity</label>
+        <select id="severity" name="severity" class="form-control" onchange="this.form.submit()">
+            <option value="">All Severities</option>
+            <option value="critical" <%= severityFilter === 'critical' ? 'selected' : '' %>>🔴 Critical</option>
+            <option value="major" <%= severityFilter === 'major' ? 'selected' : '' %>>🟠 Major</option>
+            <option value="moderate" <%= severityFilter === 'moderate' ? 'selected' : '' %>>🟡 Moderate</option>
+            <option value="minor" <%= severityFilter === 'minor' ? 'selected' : '' %>>🔵 Minor</option>
+        </select>
+    </div>
+
+    <% if (areas && areas.length > 0) { %>
+        <div class="filter-group" style="min-width: 170px;">
+            <label for="area_id" style="font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block;">Warehouse</label>
+            <select id="area_id" name="area_id" class="form-control" onchange="this.form.submit()">
+                <option value="">All Warehouses</option>
+                <% areas.forEach(a => { %>
+                    <option value="<%= a.id %>" <%= selectedAreaId === a.id ? 'selected' : '' %>><%= a.name %></option>
+                <% }) %>
+            </select>
+        </div>
+    <% } %>
+
+    <div style="display: flex; gap: 8px;">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <% if (statusFilter || severityFilter || searchQuery || (areas && areas.length > 0 && selectedAreaId)) { %>
+            <a href="/incidents" class="btn btn-outline">Reset</a>
+        <% } %>
+    </div>
+</form>
+
+<!-- Incidents List -->
+<div class="incidents-container">
+    <% if (incidents.length === 0) { %>
+        <div class="card" style="text-align: center; padding: 48px 24px; background: white; border-radius: 12px;">
+            <div style="font-size: 3rem; margin-bottom: 12px;">🛡️</div>
+            <h3 style="color: #1e293b; margin-bottom: 6px;">No Incident Reports Found</h3>
+            <p style="color: #64748b; max-width: 480px; margin: 0 auto 20px;">
+                No incident reports match your current filters. If any safety issue, misconduct, or operational concern occurs in your warehouse, report it immediately.
+            </p>
+            <a href="/incidents/new" class="btn btn-primary">File New Incident Report</a>
+        </div>
+    <% } else { %>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            <% incidents.forEach(inc => { %>
+                <a href="/incidents/<%= inc.id %>" class="card" style="display: block; text-decoration: none; color: inherit; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: transform 0.15s ease, box-shadow 0.15s ease; border: 1px solid #e2e8f0;"
+                   onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.07)';"
+                   onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.03)';">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="font-family: monospace; font-size: 0.85rem; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 3px 8px; border-radius: 6px;">
+                                <%= inc.incident_ref %>
+                            </span>
+
+                            <!-- Severity Badge -->
+                            <% if (inc.severity === 'critical') { %>
+                                <span style="background: #fee2e2; color: #991b1b; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    🔴 Critical
+                                </span>
+                            <% } else if (inc.severity === 'major') { %>
+                                <span style="background: #ffedd5; color: #9a3412; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase;">
+                                    🟠 Major
+                                </span>
+                            <% } else if (inc.severity === 'moderate') { %>
+                                <span style="background: #fef3c7; color: #92400e; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase;">
+                                    🟡 Moderate
+                                </span>
+                            <% } else { %>
+                                <span style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase;">
+                                    🔵 Minor
+                                </span>
+                            <% } %>
+
+                            <!-- Category Pill -->
+                            <span style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">
+                                <%= inc.category.replace(/_/g, ' ').toUpperCase() %>
+                            </span>
+                        </div>
+
+                        <!-- Status Badge -->
+                        <% if (inc.status === 'reported') { %>
+                            <span style="background: #f1f5f9; color: #334155; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">
+                                📩 Reported
+                            </span>
+                        <% } else if (inc.status === 'under_investigation') { %>
+                            <span style="background: #fef3c7; color: #b45309; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">
+                                🔍 Under Investigation
+                            </span>
+                        <% } else if (inc.status === 'hr_action_taken') { %>
+                            <span style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">
+                                ⚖️ Action Taken
+                            </span>
+                        <% } else { %>
+                            <span style="background: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;">
+                                ✅ <%= inc.status.toUpperCase() %>
+                            </span>
+                        <% } %>
+                    </div>
+
+                    <h3 style="font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-bottom: 6px;">
+                        <%= inc.title %>
+                    </h3>
+
+                    <p style="color: #475569; font-size: 0.9rem; line-height: 1.5; margin-bottom: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        <%= inc.description %>
+                    </p>
+
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 0.8rem; color: #64748b;">
+                        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                            <span>🏢 <strong><%= inc.area_name %></strong></span>
+                            <% if (inc.employee_name) { %>
+                                <span>👤 Involved: <strong><%= inc.employee_name %></strong> (<%= inc.emp_code %>)</span>
+                            <% } else { %>
+                                <span>👥 General / Area Incident</span>
+                            <% } %>
+                            <span>✍️ By: <strong><%= inc.reported_by_name || 'Coordinator' %></strong></span>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <span>📅 <%= inc.incident_date %> <%= inc.incident_time ? 'at ' + inc.incident_time : '' %></span>
+                            <span style="background: #f1f5f9; padding: 2px 8px; border-radius: 10px; font-weight: 600;">
+                                💬 <%= inc.reply_count || 0 %> <%= inc.reply_count === 1 ? 'update' : 'updates' %>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
+
+<%- include('../partials/layout-bottom') %>

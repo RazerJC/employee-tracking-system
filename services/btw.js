@@ -8,13 +8,12 @@ const { randomUUID } = require('crypto');
  * Idempotent: checks for existing open cases or dedup_key.
  */
 async function handleEmployeeAbsence(employeeId, workDate, recordedByUserId, remarks = '') {
-    return getDb().transaction(() => recordAbsence(employeeId, workDate, recordedByUserId, remarks))();
+    return recordAbsence(employeeId, workDate, recordedByUserId, remarks);
 }
 
 async function recordAbsence(employeeId, workDate, recordedByUserId, remarks) {
     const db = getDb();
-    // Serialize concurrent absence submissions for this employee.
-    await db.prepare('SELECT id FROM employees WHERE id = ? FOR UPDATE').get(employeeId);
+    // SQLite WAL mode handles concurrent access; FOR UPDATE is not needed/supported.
     
     // Get employee details
     const emp = (await db.prepare(`

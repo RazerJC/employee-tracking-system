@@ -34,7 +34,7 @@ module.exports = async function hrDashboard(req, res) {
         LEFT JOIN departments d ON d.id=e.department_id
         WHERE ${absenceCondition} AND NOT EXISTS (
             SELECT 1 FROM btw_cases b WHERE b.employee_id=e.id AND b.status='approved'
-            AND JSON_CONTAINS(b.absence_dates,JSON_QUOTE(CAST(ea.work_date AS CHAR))))
+            AND (b.absence_dates IS NULL OR INSTR(b.absence_dates, ea.work_date) = 0))
         GROUP BY e.id,e.full_name,d.name ORDER BY e.full_name`).all();
     const coordinators = await db.prepare(`SELECT u.full_name,a.name AS area_name,ca.time_in,ca.time_out
         FROM users u LEFT JOIN coordinator_area_assignments x ON x.user_id=u.id AND x.is_current=1

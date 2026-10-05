@@ -170,14 +170,14 @@ router.post('/', requireAuth, async (req, res) => {
     const saveStmt = db.prepare(`
         INSERT INTO employee_schedules (employee_id, work_date, shift_start, shift_end, is_rest_day, notes, created_by, created_at, updated_by, updated_at, version)
         VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), ?, UTC_TIMESTAMP(), 1)
-        ON DUPLICATE KEY UPDATE
-            shift_start = VALUES(shift_start),
-            shift_end = VALUES(shift_end),
-            is_rest_day = VALUES(is_rest_day),
-            notes = VALUES(notes),
-            updated_by = VALUES(updated_by),
+        ON CONFLICT(employee_id, work_date) DO UPDATE SET
+            shift_start = excluded.shift_start,
+            shift_end = excluded.shift_end,
+            is_rest_day = excluded.is_rest_day,
+            notes = excluded.notes,
+            updated_by = excluded.updated_by,
             updated_at = UTC_TIMESTAMP(),
-            version = version + 1
+            version = employee_schedules.version + 1
     `);
 
     for (const empId of employee_ids) {

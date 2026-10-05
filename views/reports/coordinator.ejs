@@ -1,0 +1,543 @@
+<%- include('../partials/layout-top') %>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --rpt-navy:#1B2A4A; --rpt-blue:#2563EB; --rpt-sky:#0EA5E9;
+  --rpt-green:#10B981; --rpt-amber:#F59E0B; --rpt-red:#EF4444;
+  --rpt-purple:#8B5CF6; --rpt-indigo:#6366F1;
+  --rpt-gray-50:#F8FAFC; --rpt-gray-100:#F1F5F9; --rpt-gray-200:#E2E8F0;
+  --rpt-gray-400:#94A3B8; --rpt-gray-600:#475569; --rpt-gray-800:#1E293B;
+}
+.rpt-wrapper { font-family:'Inter',sans-serif; max-width:1280px; margin:0 auto; }
+.rpt-hero {
+  background:linear-gradient(135deg,var(--rpt-navy) 0%,#1e3a6b 50%,#243b7a 100%);
+  border-radius:16px; padding:32px 36px; margin-bottom:28px;
+  position:relative; overflow:hidden; color:#fff;
+}
+.rpt-hero::before { content:''; position:absolute; top:-60px; right:-60px; width:280px; height:280px; background:rgba(255,255,255,0.04); border-radius:50%; }
+.rpt-hero-inner { position:relative; z-index:1; }
+.rpt-hero h1 { font-size:1.85rem; font-weight:800; letter-spacing:-0.02em; margin:0 0 6px; }
+.rpt-hero-sub { font-size:0.88rem; color:rgba(255,255,255,0.72); display:flex; gap:20px; flex-wrap:wrap; margin-top:10px; }
+.rpt-hero-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+.rpt-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 18px; border-radius:8px; font-size:0.84rem; font-weight:600; cursor:pointer; border:none; text-decoration:none; transition:all 0.18s; }
+.rpt-btn-white { background:#fff; color:var(--rpt-navy); }
+.rpt-btn-white:hover { background:#e2e8f0; color:var(--rpt-navy); }
+.rpt-btn-outline { background:rgba(255,255,255,0.12); color:#fff; border:1px solid rgba(255,255,255,0.28); }
+.rpt-btn-outline:hover { background:rgba(255,255,255,0.22); }
+.rpt-filter { background:#fff; border:1px solid var(--rpt-gray-200); border-radius:12px; padding:18px 24px; margin-bottom:24px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+.rpt-filter label { font-size:0.76rem; font-weight:600; color:var(--rpt-gray-600); text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:5px; }
+.rpt-filter input, .rpt-filter select { border:1px solid var(--rpt-gray-200); border-radius:7px; padding:7px 11px; font-size:0.84rem; color:var(--rpt-gray-800); background:var(--rpt-gray-50); min-width:140px; }
+.rpt-filter-group { display:flex; flex-direction:column; }
+.rpt-kpi-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:14px; margin-bottom:28px; }
+.rpt-kpi { background:#fff; border:1px solid var(--rpt-gray-200); border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; transition:box-shadow 0.18s,transform 0.18s; }
+.rpt-kpi:hover { box-shadow:0 8px 24px rgba(0,0,0,0.09); transform:translateY(-2px); }
+.rpt-kpi-accent { width:4px; height:100%; position:absolute; left:0; top:0; border-radius:12px 0 0 12px; }
+.rpt-kpi-label { font-size:0.72rem; font-weight:600; color:var(--rpt-gray-400); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:8px; }
+.rpt-kpi-value { font-size:2.1rem; font-weight:800; color:var(--rpt-gray-800); line-height:1; }
+.rpt-kpi-sub { font-size:0.75rem; color:var(--rpt-gray-400); margin-top:5px; }
+.rpt-section { background:#fff; border:1px solid var(--rpt-gray-200); border-radius:14px; margin-bottom:24px; overflow:hidden; }
+.rpt-section-header { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-bottom:1px solid var(--rpt-gray-200); background:var(--rpt-gray-50); }
+.rpt-section-title { font-size:0.95rem; font-weight:700; color:var(--rpt-gray-800); display:flex; align-items:center; gap:9px; }
+.rpt-section-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1rem; }
+.rpt-count-badge { font-size:0.72rem; font-weight:700; padding:2px 9px; border-radius:20px; background:var(--rpt-gray-200); color:var(--rpt-gray-600); }
+.rpt-table { width:100%; border-collapse:collapse; font-size:0.83rem; }
+.rpt-table thead tr { background:var(--rpt-gray-50); }
+.rpt-table th { text-align:left; padding:10px 14px; font-size:0.72rem; font-weight:700; color:var(--rpt-gray-400); text-transform:uppercase; letter-spacing:0.06em; border-bottom:1px solid var(--rpt-gray-200); }
+.rpt-table td { padding:10px 14px; border-bottom:1px solid var(--rpt-gray-100); color:var(--rpt-gray-800); vertical-align:middle; }
+.rpt-table tr:last-child td { border-bottom:none; }
+.rpt-table tr:hover td { background:var(--rpt-gray-50); }
+.rpt-badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+.badge-present { background:#D1FAE5; color:#065F46; }
+.badge-absent { background:#FEE2E2; color:#991B1B; }
+.badge-late { background:#FEF3C7; color:#92400E; }
+.badge-rest { background:#EDE9FE; color:#5B21B6; }
+.badge-submitted { background:#DBEAFE; color:#1D4ED8; }
+.badge-review { background:#FEF3C7; color:#B45309; }
+.badge-filled { background:#D1FAE5; color:#065F46; }
+.badge-declined { background:#FEE2E2; color:#991B1B; }
+.badge-open { background:#FEE2E2; color:#991B1B; }
+.badge-resolved { background:#D1FAE5; color:#065F46; }
+.badge-urgent { background:#FEE2E2; color:#991B1B; }
+.badge-normal { background:#E0F2FE; color:#0369A1; }
+.badge-high { background:#FEF3C7; color:#92400E; }
+.badge-pending { background:#FEF3C7; color:#92400E; }
+.badge-approved { background:#D1FAE5; color:#065F46; }
+.rpt-two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+.rpt-empty { text-align:center; padding:32px 20px; color:var(--rpt-gray-400); font-size:0.85rem; }
+@media (max-width:900px) { .rpt-two-col { grid-template-columns:1fr; } }
+@media print {
+  .sidebar, .main-header, .rpt-filter, .rpt-hero-actions, .no-print { display:none !important; }
+  .rpt-section { break-inside:avoid; border:1px solid #ccc; }
+  .rpt-hero { background:#1B2A4A !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { background:#fff; }
+}
+</style>
+
+<%
+function attBadge(s) {
+  const m={present:'badge-present',absent:'badge-absent',late:'badge-late',rest_day:'badge-rest',holiday:'badge-submitted',approved_leave:'badge-approved'};
+  return m[s]||'badge-normal';
+}
+function sBadge(s) {
+  const m={submitted:'badge-submitted',under_review:'badge-review',filled:'badge-filled',declined:'badge-declined',cancelled:'badge-declined',open:'badge-open',investigating:'badge-pending',resolved:'badge-resolved',closed:'badge-rest',pending:'badge-pending',approved:'badge-approved',urgent:'badge-urgent',normal:'badge-normal',high:'badge-high',low:'badge-rest',active:'badge-present'};
+  return m[(s||'').toLowerCase()]||'badge-normal';
+}
+%>
+
+<div class="rpt-wrapper">
+
+<!-- HERO -->
+<div class="rpt-hero">
+  <div class="rpt-hero-inner">
+    <h1>📊 Reports</h1>
+    <div class="rpt-hero-sub">
+      <span>📅 Period: <strong><%= dateFrom %> → <%= dateTo %></strong></span>
+      <span>🏭 Area: <strong><%= areaName || 'All Areas' %></strong></span>
+      <span>🕐 Generated: <strong><%= new Date().toLocaleString('en-PH', {timeZone:'Asia/Manila'}) %></strong></span>
+      <% if (user.role === 'COORDINATOR') { %><span>👤 Coordinator: <strong><%= user.full_name %></strong></span><% } %>
+    </div>
+    <div class="rpt-hero-actions">
+      <button class="rpt-btn rpt-btn-white" onclick="window.print()">🖨 Print Report</button>
+      <a class="rpt-btn rpt-btn-outline" href="/reports/export?date_from=<%= dateFrom %>&date_to=<%= dateTo %>&area_id=<%= selectedAreaId || '' %>">📥 Export Excel</a>
+      <a class="rpt-btn rpt-btn-outline no-print" href="/reports">🔄 Refresh</a>
+    </div>
+  </div>
+</div>
+
+<!-- FILTER -->
+<form class="rpt-filter no-print" method="GET" action="/reports">
+  <div class="rpt-filter-group">
+    <label>From Date</label>
+    <input type="date" name="date_from" value="<%= dateFrom %>">
+  </div>
+  <div class="rpt-filter-group">
+    <label>To Date</label>
+    <input type="date" name="date_to" value="<%= dateTo %>">
+  </div>
+  <% if (user.role !== 'COORDINATOR') { %>
+  <div class="rpt-filter-group">
+    <label>Warehouse / Area</label>
+    <select name="area_id">
+      <option value="">All Areas</option>
+      <% areas.forEach(a => { %>
+        <option value="<%= a.id %>" <%= selectedAreaId === a.id ? 'selected' : '' %>><%= a.name %></option>
+      <% }) %>
+    </select>
+  </div>
+  <% } %>
+  <button type="submit" class="rpt-btn rpt-btn-white" style="background:var(--rpt-navy);color:#fff;align-self:flex-end;">Apply Filter</button>
+</form>
+
+<!-- KPI CARDS -->
+<div class="rpt-kpi-row">
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-blue);"></div>
+    <div class="rpt-kpi-label">Total Employees</div>
+    <div class="rpt-kpi-value"><%= kpi.totalEmployees %></div>
+    <div class="rpt-kpi-sub">Active workforce</div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-green);"></div>
+    <div class="rpt-kpi-label">Present Today</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-green);"><%= kpi.presentToday %></div>
+    <div class="rpt-kpi-sub">of <%= kpi.scheduledToday %> scheduled</div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-red);"></div>
+    <div class="rpt-kpi-label">Absent Today</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-red);"><%= kpi.absentToday %></div>
+    <div class="rpt-kpi-sub">This working day</div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-amber);"></div>
+    <div class="rpt-kpi-label">Late (Today)</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-amber);"><%= kpi.lateToday %></div>
+    <div class="rpt-kpi-sub">Period total: <%= kpi.latePeriod %></div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-purple);"></div>
+    <div class="rpt-kpi-label">Manpower Req.</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-purple);"><%= kpi.manpowerTotal %></div>
+    <div class="rpt-kpi-sub"><%= kpi.manpowerPending %> still open</div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-indigo);"></div>
+    <div class="rpt-kpi-label">Workers Requested</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-indigo);"><%= kpi.workersRequested %></div>
+    <div class="rpt-kpi-sub"><%= kpi.workersConfirmed %> deployed</div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-red);"></div>
+    <div class="rpt-kpi-label">Open Incidents</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-red);"><%= kpi.openIncidents %></div>
+    <div class="rpt-kpi-sub"><%= kpi.resolvedIncidents %> resolved</div>
+  </div>
+  <div class="rpt-kpi">
+    <div class="rpt-kpi-accent" style="background:var(--rpt-sky);"></div>
+    <div class="rpt-kpi-label">BTW Cases</div>
+    <div class="rpt-kpi-value" style="color:var(--rpt-sky);"><%= kpi.btwTotal %></div>
+    <div class="rpt-kpi-sub"><%= kpi.btwPending %> pending</div>
+  </div>
+</div>
+
+<!-- ATTENDANCE SUMMARY BY EMPLOYEE -->
+<div class="rpt-section">
+  <div class="rpt-section-header">
+    <div class="rpt-section-title">
+      <div class="rpt-section-icon" style="background:#D1FAE5;">📅</div>
+      Employee Attendance — Period Summary (<%= dateFrom %> to <%= dateTo %>)
+    </div>
+    <span class="rpt-count-badge"><%= attendanceSummary.length %> employee(s)</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <% if (attendanceSummary.length > 0) { %>
+    <table class="rpt-table">
+      <thead>
+        <tr>
+          <th>Employee</th><th>Position</th><th>Area</th>
+          <th style="text-align:center;">Present</th>
+          <th style="text-align:center;">Late</th>
+          <th style="text-align:center;">Absent</th>
+          <th style="text-align:center;">Rest Day</th>
+          <th style="text-align:center;">Total</th>
+          <th>Attendance Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% attendanceSummary.forEach(emp => {
+          const workdays = emp.present + emp.late + emp.absent;
+          const rate = workdays > 0 ? Math.round(((emp.present + emp.late) / workdays) * 100) : 0;
+          const total = emp.present + emp.late + emp.absent + emp.rest_day;
+          const color = rate >= 80 ? 'var(--rpt-green)' : rate >= 60 ? 'var(--rpt-amber)' : 'var(--rpt-red)';
+        %>
+        <tr>
+          <td><strong><%= emp.full_name %></strong><div style="font-size:0.72rem;color:var(--rpt-gray-400);"><%= emp.emp_code %></div></td>
+          <td><%= emp.position_title || '—' %></td>
+          <td><%= emp.area_name %></td>
+          <td style="text-align:center;"><strong style="color:var(--rpt-green);"><%= emp.present %></strong></td>
+          <td style="text-align:center;"><strong style="color:var(--rpt-amber);"><%= emp.late %></strong></td>
+          <td style="text-align:center;"><strong style="color:var(--rpt-red);"><%= emp.absent %></strong></td>
+          <td style="text-align:center;"><strong style="color:var(--rpt-purple);"><%= emp.rest_day %></strong></td>
+          <td style="text-align:center;"><%= total %></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;background:var(--rpt-gray-100);border-radius:4px;height:7px;overflow:hidden;">
+                <div style="width:<%= rate %>%;background:<%= color %>;height:100%;"></div>
+              </div>
+              <span style="font-size:0.75rem;font-weight:700;color:<%= color %>;"><%= rate %>%</span>
+            </div>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } else { %>
+      <div class="rpt-empty">📭 No attendance records found for this period.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- TODAY'S ATTENDANCE -->
+<div class="rpt-section">
+  <div class="rpt-section-header">
+    <div class="rpt-section-title">
+      <div class="rpt-section-icon" style="background:#DBEAFE;">🕐</div>
+      Today's Attendance Log — <%= todayDate %>
+    </div>
+    <span class="rpt-count-badge"><%= todayAttendance.length %> record(s)</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <% if (todayAttendance.length > 0) { %>
+    <table class="rpt-table">
+      <thead>
+        <tr><th>Employee</th><th>Position</th><th>Status</th><th>Time In</th><th>Time Out</th><th>Remarks</th></tr>
+      </thead>
+      <tbody>
+        <% todayAttendance.forEach(r => { %>
+        <tr>
+          <td><strong><%= r.employee_name %></strong><div style="font-size:0.72rem;color:var(--rpt-gray-400);"><%= r.emp_code %></div></td>
+          <td><%= r.position_title || '—' %></td>
+          <td><span class="rpt-badge <%= attBadge(r.status) %>"><%= (r.status||'').replace('_',' ') %></span></td>
+          <td style="color:var(--rpt-green);font-weight:600;"><%= r.time_in || '—' %></td>
+          <td style="color:var(--rpt-blue);font-weight:600;"><%= r.time_out || '—' %></td>
+          <td style="font-size:0.78rem;color:var(--rpt-gray-600);"><%= r.remarks || '—' %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } else { %>
+      <div class="rpt-empty">📭 No attendance recorded for today yet.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- MANPOWER REQUESTS -->
+<div class="rpt-section">
+  <div class="rpt-section-header">
+    <div class="rpt-section-title">
+      <div class="rpt-section-icon" style="background:#EDE9FE;">👥</div>
+      Manpower Requests — Term Deployment
+    </div>
+    <span class="rpt-count-badge"><%= manpowerRequests.length %> request(s)</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <% if (manpowerRequests.length > 0) { %>
+    <table class="rpt-table">
+      <thead>
+        <tr>
+          <th>Req #</th><th>Area</th><th>Term Deployment</th><th>Submitted By</th>
+          <th>Priority</th><th>Status</th>
+          <th style="text-align:center;">Requested</th>
+          <th style="text-align:center;">Deployed</th>
+          <th style="text-align:center;">Remaining</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% manpowerRequests.forEach(mr => {
+          const rem = Math.max(0,(mr.total_requested||0)-(mr.confirmed_count||0));
+        %>
+        <tr>
+          <td><a href="/manpower/<%= mr.id %>" style="color:var(--rpt-blue);font-weight:600;">#<%= mr.id %></a></td>
+          <td><%= mr.area_name %></td>
+          <td><strong><%= mr.deployment_date %></strong></td>
+          <td><%= mr.requester_name || '—' %></td>
+          <td><span class="rpt-badge <%= sBadge(mr.priority) %>"><%= mr.priority %></span></td>
+          <td><span class="rpt-badge <%= sBadge(mr.status) %>"><%= (mr.status||'').replace('_',' ') %></span></td>
+          <td style="text-align:center;font-weight:700;color:var(--rpt-purple);"><%= mr.total_requested %></td>
+          <td style="text-align:center;font-weight:700;color:var(--rpt-green);"><%= mr.confirmed_count %></td>
+          <td style="text-align:center;font-weight:700;color:<%= rem>0?'var(--rpt-red)':'var(--rpt-green)' %>;"><%= rem %></td>
+          <td style="font-size:0.78rem;color:var(--rpt-gray-600);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= mr.reason || '—' %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+      <tfoot style="background:var(--rpt-gray-50);border-top:2px solid var(--rpt-gray-200);">
+        <tr>
+          <td colspan="6" style="font-weight:700;padding:10px 14px;font-size:0.82rem;">TOTALS</td>
+          <td style="text-align:center;font-weight:800;color:var(--rpt-purple);"><%= manpowerRequests.reduce((s,r)=>s+(r.total_requested||0),0) %></td>
+          <td style="text-align:center;font-weight:800;color:var(--rpt-green);"><%= manpowerRequests.reduce((s,r)=>s+(r.confirmed_count||0),0) %></td>
+          <td style="text-align:center;font-weight:800;color:var(--rpt-red);"><%= manpowerRequests.reduce((s,r)=>s+Math.max(0,(r.total_requested||0)-(r.confirmed_count||0)),0) %></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+    <% } else { %>
+      <div class="rpt-empty">📭 No manpower requests found.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- POSITION BREAKDOWN -->
+<% if (positionBreakdown.length > 0) { %>
+<div class="rpt-section">
+  <div class="rpt-section-header">
+    <div class="rpt-section-title">
+      <div class="rpt-section-icon" style="background:#FEF3C7;">📌</div>
+      Position Breakdown — Workers Requested vs Deployed by Role
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="rpt-table">
+      <thead>
+        <tr>
+          <th>Position</th>
+          <th style="text-align:center;">Total Requested</th>
+          <th style="text-align:center;">Deployed</th>
+          <th style="text-align:center;">Remaining</th>
+          <th>Fill Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% positionBreakdown.forEach(p => {
+          const fillRate = p.qty_requested > 0 ? Math.round((p.qty_confirmed/p.qty_requested)*100) : 0;
+          const fc = fillRate>=80?'var(--rpt-green)':fillRate>=50?'var(--rpt-amber)':'var(--rpt-red)';
+        %>
+        <tr>
+          <td><strong><%= p.position_title %></strong></td>
+          <td style="text-align:center;font-weight:700;color:var(--rpt-purple);"><%= p.qty_requested %></td>
+          <td style="text-align:center;font-weight:700;color:var(--rpt-green);"><%= p.qty_confirmed %></td>
+          <td style="text-align:center;font-weight:700;color:var(--rpt-red);"><%= Math.max(0,p.qty_requested-p.qty_confirmed) %></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;background:var(--rpt-gray-100);border-radius:4px;height:7px;overflow:hidden;">
+                <div style="width:<%= fillRate %>%;background:<%= fc %>;height:100%;"></div>
+              </div>
+              <span style="font-size:0.75rem;font-weight:700;color:<%= fc %>;"><%= fillRate %>%</span>
+            </div>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- BTW + INCIDENTS -->
+<div class="rpt-two-col">
+  <div class="rpt-section" style="margin-bottom:0;">
+    <div class="rpt-section-header">
+      <div class="rpt-section-title">
+        <div class="rpt-section-icon" style="background:#FEE2E2;">🏥</div>
+        Back-to-Work Cases
+      </div>
+      <span class="rpt-count-badge"><%= btwCases.length %></span>
+    </div>
+    <div style="overflow-x:auto;">
+      <% if (btwCases.length > 0) { %>
+      <table class="rpt-table">
+        <thead><tr><th>Employee</th><th>Type</th><th>Filed</th><th>Status</th></tr></thead>
+        <tbody>
+          <% btwCases.forEach(b => { %>
+          <tr>
+            <td><strong><%= b.employee_name %></strong><div style="font-size:0.7rem;color:var(--rpt-gray-400);"><%= b.area_name %></div></td>
+            <td style="font-size:0.78rem;"><%= b.case_type || b.action_type || 'N/A' %></td>
+            <td style="font-size:0.78rem;color:var(--rpt-gray-600);"><%= b.filed_date ? b.filed_date.toString().slice(0,10) : (b.created_at ? b.created_at.toString().slice(0,10) : '—') %></td>
+            <td><span class="rpt-badge <%= sBadge(b.status) %>"><%= b.status %></span></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+        <div class="rpt-empty">✅ No BTW cases this period.</div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="rpt-section" style="margin-bottom:0;">
+    <div class="rpt-section-header">
+      <div class="rpt-section-title">
+        <div class="rpt-section-icon" style="background:#FEE2E2;">⚠️</div>
+        Incident Reports
+      </div>
+      <span class="rpt-count-badge"><%= incidents.length %></span>
+    </div>
+    <div style="overflow-x:auto;">
+      <% if (incidents.length > 0) { %>
+      <table class="rpt-table">
+        <thead><tr><th>Title</th><th>Reporter</th><th>Severity</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          <% incidents.forEach(inc => { %>
+          <tr>
+            <td><a href="/incidents/<%= inc.id %>" style="color:var(--rpt-blue);font-weight:600;"><%= inc.title %></a><div style="font-size:0.7rem;color:var(--rpt-gray-400);"><%= inc.area_name||'—' %></div></td>
+            <td style="font-size:0.78rem;"><%= inc.reporter_name||'—' %></td>
+            <td><span class="rpt-badge <%= sBadge(inc.severity) %>"><%= inc.severity||'normal' %></span></td>
+            <td><span class="rpt-badge <%= sBadge(inc.status) %>"><%= (inc.status||'').replace('_',' ') %></span></td>
+            <td style="font-size:0.78rem;color:var(--rpt-gray-600);"><%= inc.created_at ? inc.created_at.toString().slice(0,10) : '—' %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+        <div class="rpt-empty">✅ No incident reports this period.</div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVE EMPLOYEE MASTERFILE -->
+<div class="rpt-section">
+  <div class="rpt-section-header">
+    <div class="rpt-section-title">
+      <div class="rpt-section-icon" style="background:#DBEAFE;">👤</div>
+      Active Employee Masterfile
+    </div>
+    <span class="rpt-count-badge"><%= employees.length %> employee(s)</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <% if (employees.length > 0) { %>
+    <table class="rpt-table">
+      <thead>
+        <tr><th>Employee ID</th><th>Full Name</th><th>Position</th><th>Area / Warehouse</th><th>Start Date</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <% employees.forEach(e => { %>
+        <tr>
+          <td style="font-family:monospace;font-size:0.78rem;color:var(--rpt-gray-600);"><%= e.employee_id %></td>
+          <td><strong><%= e.full_name %></strong></td>
+          <td><%= e.position_title || '—' %></td>
+          <td><%= e.area_name %></td>
+          <td style="font-size:0.78rem;color:var(--rpt-gray-600);"><%= e.employment_start_date || '—' %></td>
+          <td><span class="rpt-badge <%= e.status==='active'?'badge-present':'badge-absent' %>"><%= e.status %></span></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } else { %>
+      <div class="rpt-empty">📭 No active employees found.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- COORDINATOR ATTENDANCE LOG -->
+<% if (coordinatorAttendance && coordinatorAttendance.length > 0) { %>
+<div class="rpt-section">
+  <div class="rpt-section-header">
+    <div class="rpt-section-title">
+      <div class="rpt-section-icon" style="background:#F3F4F6;">🧑‍💼</div>
+      Coordinator Own Attendance Log — <%= user.full_name %>
+    </div>
+    <span class="rpt-count-badge"><%= coordinatorAttendance.length %> day(s)</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="rpt-table">
+      <thead>
+        <tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Duration</th><th>Remarks</th></tr>
+      </thead>
+      <tbody>
+        <% coordinatorAttendance.forEach(ca => {
+          let dur = '—';
+          if (ca.time_in && ca.time_out) {
+            const [hi,mi]=(ca.time_in||'').split(':').map(Number);
+            const [ho,mo]=(ca.time_out||'').split(':').map(Number);
+            const mins=(ho*60+mo)-(hi*60+mi);
+            if (mins>0) dur=`${Math.floor(mins/60)}h ${mins%60}m`;
+          }
+        %>
+        <tr>
+          <td><strong><%= ca.work_date %></strong></td>
+          <td style="color:var(--rpt-green);font-weight:600;"><%= ca.time_in || '—' %></td>
+          <td style="color:var(--rpt-blue);font-weight:600;"><%= ca.time_out || '—' %></td>
+          <td style="font-size:0.78rem;color:var(--rpt-gray-600);"><%= dur %></td>
+          <td style="font-size:0.78rem;color:var(--rpt-gray-600);"><%= ca.remarks || '—' %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- SIGNATURE SECTION -->
+<div style="margin:32px 0 20px;border-top:2px solid var(--rpt-gray-200);padding-top:24px;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:32px;">
+    <div>
+      <div style="border-top:1px solid #333;padding-top:8px;margin-top:40px;font-size:0.78rem;color:var(--rpt-gray-600);">
+        <strong>Prepared by Coordinator</strong><br>
+        <%= user.full_name %><br>
+        Date: ___________________
+      </div>
+    </div>
+    <div>
+      <div style="border-top:1px solid #333;padding-top:8px;margin-top:40px;font-size:0.78rem;color:var(--rpt-gray-600);">
+        <strong>Noted by HR</strong><br>
+        Signature over Printed Name<br>
+        Date: ___________________
+      </div>
+    </div>
+    <div>
+      <div style="border-top:1px solid #333;padding-top:8px;margin-top:40px;font-size:0.78rem;color:var(--rpt-gray-600);">
+        <strong>Approved by Admin</strong><br>
+        Signature over Printed Name<br>
+        Date: ___________________
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:24px;font-size:0.72rem;color:var(--rpt-gray-400);text-align:center;">
+    TAASCOR Management &amp; General Services Corp. — Confidential Report — Generated by ETS v1.0
+  </div>
+</div>
+
+</div>
+<%- include('../partials/layout-bottom') %>

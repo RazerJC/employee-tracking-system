@@ -8,11 +8,17 @@
             <span>/</span>
             <span><%= request.area_name %></span>
             <span>•</span>
-            <span>Deployment: <%= formatDate(request.deployment_date) %></span>
+            <span>Term Deployment: <%= formatDate(request.deployment_date) %></span>
         </div>
     </div>
-    <div>
+    <div style="display: flex; align-items: center; gap: 10px;">
         <%- include('../partials/status-badge', { status: request.status }) %>
+        <% if (!['filled'].includes(request.status) && (user.role === 'HR' || user.role === 'ADMIN' || user.role === 'HEAD_HR' || (user.role === 'COORDINATOR' && request.requested_by === user.id))) { %>
+        <form method="POST" action="/manpower/<%= request.id %>/delete" onsubmit="return confirm('Delete this manpower request? This cannot be undone.')" style="display:inline;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="btn btn-sm" style="background: var(--color-danger); color: #fff; border: none;">🗑 Delete Request</button>
+        </form>
+        <% } %>
     </div>
 </div>
 
@@ -59,7 +65,7 @@
         <div class="detail-value"><%= request.requester_name || 'Coordinator' %></div>
     </div>
     <div class="detail-item">
-        <div class="detail-label">Required Deployment Date</div>
+        <div class="detail-label">Required Term Deployment Date</div>
         <div class="detail-value"><strong><%= formatDate(request.deployment_date) %></strong></div>
     </div>
     <div class="detail-item">

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('ADMIN','HR','COORDINATOR')),
+    role TEXT NOT NULL CHECK(role IN ('ADMIN','HR','HEAD_HR','COORDINATOR')),
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','active','suspended','rejected')),
     email_verified INTEGER NOT NULL DEFAULT 0,
     must_change_password INTEGER NOT NULL DEFAULT 0,
@@ -165,6 +165,8 @@ CREATE TABLE IF NOT EXISTS coordinator_attendance (
     correction_approved_by INTEGER REFERENCES users(id),
     correction_approved_at TEXT,
     correction_note TEXT,
+    time_in_photo TEXT,
+    time_out_photo TEXT,
     remarks TEXT,
     UNIQUE(user_id, work_date)
 );
@@ -186,7 +188,11 @@ CREATE TABLE IF NOT EXISTS btw_cases (
     absence_reason TEXT,
     hr_reviewer_id INTEGER REFERENCES users(id),
     hr_decision TEXT,
+    action_type TEXT DEFAULT 'none',
     hr_remarks TEXT,
+    article_violated TEXT,
+    suspension_start TEXT,
+    suspension_end TEXT,
     decision_at TEXT,
     authorized_return_date TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -351,3 +357,68 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     expires_at TEXT NOT NULL,
     used_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS manpower_request_handlers (
+    request_id INTEGER NOT NULL PRIMARY KEY REFERENCES manpower_requests(id),
+    hr_id INTEGER NOT NULL REFERENCES users(id),
+    claimed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS btw_hr_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id INTEGER NOT NULL REFERENCES btw_cases(id),
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    decision TEXT NOT NULL,
+    action_type TEXT NOT NULL DEFAULT 'none',
+    issued_date TEXT,
+    suspension_start TEXT,
+    suspension_end TEXT,
+    return_date TEXT,
+    article_violated TEXT,
+    summary TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_btw_action_case ON btw_hr_actions(case_id, id);
+
+-----------------------------------------------------
+-- INCIDENT MANAGEMENT
+-----------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS incident_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_ref TEXT NOT NULL UNIQUE,
+    area_id INTEGER NOT NULL REFERENCES areas(id),
+    reported_by INTEGER NOT NULL REFERENCES users(id),
+    employee_id INTEGER REFERENCES employees(id),
+    incident_date TEXT NOT NULL,
+    incident_time TEXT,
+    category TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT 'minor' CHECK(severity IN ('minor','moderate','major','critical')),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location_details TEXT,
+    immediate_action_taken TEXT,
+    status TEXT NOT NULL DEFAULT 'reported' CHECK(status IN ('reported','under_investigation','hr_action_taken','resolved','closed')),
+    hr_reviewer_id INTEGER REFERENCES users(id),
+    hr_resolution_notes TEXT,
+    hr_action_type TEXT DEFAULT 'none',
+    resolved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_incident_area ON incident_reports(area_id);
+CREATE INDEX IF NOT EXISTS idx_incident_status ON incident_reports(status);
+CREATE INDEX IF NOT EXISTS idx_incident_severity ON incident_reports(severity);
+CREATE INDEX IF NOT EXISTS idx_incident_emp ON incident_reports(employee_id);
+
+CREATE TABLE IF NOT EXISTS incident_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id INTEGER NOT NULL REFERENCES incident_reports(id),
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    author_role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    entry_type TEXT NOT NULL DEFAULT 'comment' CHECK(entry_type IN ('comment','status_change','investigation','hr_action','system')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_incident_entries ON incident_entries(incident_id);
+

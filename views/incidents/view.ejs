@@ -1,0 +1,318 @@
+<%- include('../partials/layout-top') %>
+
+<div class="page-header" style="margin-bottom: 20px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+            <span style="font-family: monospace; font-size: 1rem; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 4px 10px; border-radius: 6px;">
+                <%= incident.incident_ref %>
+            </span>
+
+            <% if (incident.severity === 'critical') { %>
+                <span style="background: #fee2e2; color: #991b1b; font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
+                    🔴 Critical Severity
+                </span>
+            <% } else if (incident.severity === 'major') { %>
+                <span style="background: #ffedd5; color: #9a3412; font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
+                    🟠 Major Severity
+                </span>
+            <% } else if (incident.severity === 'moderate') { %>
+                <span style="background: #fef3c7; color: #92400e; font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
+                    🟡 Moderate Severity
+                </span>
+            <% } else { %>
+                <span style="background: #f1f5f9; color: #475569; font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
+                    🔵 Minor Severity
+                </span>
+            <% } %>
+
+            <% if (incident.status === 'reported') { %>
+                <span style="background: #f1f5f9; color: #334155; font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;">
+                    📩 Reported
+                </span>
+            <% } else if (incident.status === 'under_investigation') { %>
+                <span style="background: #fef3c7; color: #b45309; font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;">
+                    🔍 Under Investigation
+                </span>
+            <% } else if (incident.status === 'hr_action_taken') { %>
+                <span style="background: #e0e7ff; color: #4338ca; font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;">
+                    ⚖️ Action Taken
+                </span>
+            <% } else { %>
+                <span style="background: #dcfce7; color: #166534; font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;">
+                    ✅ <%= incident.status.toUpperCase() %>
+                </span>
+            <% } %>
+        </div>
+
+        <h2 style="font-size: 1.6rem; font-weight: 700; color: #0f172a; margin: 0;">
+            <%= incident.title %>
+        </h2>
+        <div class="breadcrumb" style="margin-top: 6px;">
+            <a href="/incidents">Incident Management</a>
+            <span>/</span>
+            <span><%= incident.incident_ref %></span>
+        </div>
+    </div>
+    <div>
+        <a href="/incidents" class="btn btn-outline">← Back to Incidents</a>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+    <!-- LEFT COLUMN: Incident Details & Timeline -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Main Incident Narrative Card -->
+        <div class="card" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;">
+            <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 0.85rem; color: #64748b;">
+                    Filed on <strong><%= formatDate(incident.created_at) %></strong> by <strong><%= incident.reported_by_name %></strong>
+                </div>
+                <div style="font-size: 0.85rem; color: #0369a1; background: #e0f2fe; padding: 3px 10px; border-radius: 12px; font-weight: 600;">
+                    <%= incident.category.replace(/_/g, ' ').toUpperCase() %>
+                </div>
+            </div>
+
+            <!-- Key Specs Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 8px;">
+                <div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Warehouse / Location</div>
+                    <div style="font-weight: 700; color: #1e293b; margin-top: 2px;">
+                        <%= incident.area_name %>
+                        <% if (incident.location_details) { %>
+                            <div style="font-size: 0.8rem; font-weight: 400; color: #475569;"><%= incident.location_details %></div>
+                        <% } %>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Incident Date & Time</div>
+                    <div style="font-weight: 700; color: #1e293b; margin-top: 2px;">
+                        <%= incident.incident_date %>
+                        <% if (incident.incident_time) { %>
+                            <span style="font-weight: 400; color: #475569;">at <%= incident.incident_time %></span>
+                        <% } %>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Worker / Personnel Involved</div>
+                    <div style="font-weight: 700; color: #1e293b; margin-top: 2px;">
+                        <% if (incident.employee_name) { %>
+                            <a href="/employees/<%= incident.employee_id %>" style="color: #2563eb; text-decoration: none;">
+                                <%= incident.employee_name %>
+                            </a>
+                            <div style="font-size: 0.8rem; font-weight: 400; color: #475569;">ID: <%= incident.emp_code %> • <%= incident.position_title || 'Worker' %></div>
+                        <% } else { %>
+                            <span style="color: #475569;">General / Multiple Staff</span>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Statement -->
+            <div style="margin-bottom: 20px;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
+                    📝 Incident Description & Statement of Facts:
+                </h4>
+                <div style="color: #334155; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+                    <%= incident.description %>
+                </div>
+            </div>
+
+            <!-- Immediate Action Taken -->
+            <% if (incident.immediate_action_taken) { %>
+                <div>
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #065f46; margin-bottom: 8px;">
+                        ⚡ Immediate Action Taken On Site:
+                    </h4>
+                    <div style="color: #064e3b; font-size: 0.9rem; line-height: 1.5; background: #ecfdf5; border-left: 4px solid #10b981; border-radius: 6px; padding: 12px 16px;">
+                        <%= incident.immediate_action_taken %>
+                    </div>
+                </div>
+            <% } %>
+        </div>
+
+        <!-- HR Official Findings / Resolution Card (if any) -->
+        <% if (incident.hr_resolution_notes || incident.hr_action_type !== 'none' || incident.status === 'resolved') { %>
+            <div class="card" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 8px;">
+                        ⚖️ HR Official Finding & Management Verdict
+                    </h4>
+                    <% if (incident.hr_reviewer_name) { %>
+                        <span style="font-size: 0.8rem; color: #64748b;">
+                            Handled by: <strong><%= incident.hr_reviewer_name %></strong>
+                        </span>
+                    <% } %>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+                    <div>
+                        <span style="font-size: 0.8rem; color: #64748b;">Action / Sanction:</span>
+                        <span style="font-weight: 700; color: #1e40af; text-transform: uppercase; margin-left: 4px;">
+                            <%= (incident.hr_action_type || 'none').replace(/_/g, ' ') %>
+                        </span>
+                    </div>
+                    <% if (incident.resolved_at) { %>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b;">Resolved At:</span>
+                            <strong style="margin-left: 4px; color: #047857;"><%= formatDate(incident.resolved_at) %></strong>
+                        </div>
+                    <% } %>
+                </div>
+
+                <% if (incident.hr_resolution_notes) { %>
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; font-size: 0.9rem; color: #1e293b; line-height: 1.5; white-space: pre-wrap;">
+                        <%= incident.hr_resolution_notes %>
+                    </div>
+                <% } %>
+            </div>
+        <% } %>
+
+        <!-- Timeline / Communication Log -->
+        <div class="card" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                💬 Investigation Log & Updates (<%= entries.length %>)
+            </h3>
+
+            <% if (entries.length === 0) { %>
+                <div style="color: #64748b; font-size: 0.9rem; text-align: center; padding: 24px 0;">
+                    No updates logged yet. Add comments or investigation notes below.
+                </div>
+            <% } else { %>
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <% entries.forEach(entry => { %>
+                        <div style="border-left: 3px solid <%= entry.entry_type === 'hr_action' ? '#4f46e5' : (entry.entry_type === 'system' ? '#94a3b8' : '#2563eb') %>; padding-left: 16px; background: <%= entry.entry_type === 'hr_action' ? '#f5f3ff' : '#fcfcfc' %>; padding: 14px; border-radius: 0 8px 8px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <strong><%= entry.author_name %></strong>
+                                    <span style="font-size: 0.75rem; background: <%= entry.author_role === 'ADMIN' ? '#fef3c7' : (['HR','HEAD_HR'].includes(entry.author_role) ? '#dbeafe' : '#f1f5f9') %>; color: #1e293b; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+                                        <%= entry.author_role %>
+                                    </span>
+                                </div>
+                                <span style="font-size: 0.75rem; color: #94a3b8;">
+                                    <%= formatDate(entry.created_at) %>
+                                </span>
+                            </div>
+                            <div style="font-size: 0.9rem; color: #334155; line-height: 1.5; white-space: pre-wrap;">
+                                <%= entry.content %>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+
+            <!-- Add Update Form -->
+            <form action="/incidents/<%= incident.id %>/comment" method="POST" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <label for="commentContent" style="font-weight: 600; font-size: 0.85rem; color: #334155; margin-bottom: 6px; display: block;">
+                    Post Investigation Note / Update / Coordinator Statement:
+                </label>
+                <textarea id="commentContent" name="content" class="form-control" rows="3" placeholder="Type comments, witness interview updates, or follow-up details..." required style="margin-bottom: 12px;"></textarea>
+                <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                    ✉️ Post Update
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: HR & Management Action Panel -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- HR / Admin Action Box -->
+        <% if (['HR', 'HEAD_HR', 'ADMIN'].includes(user.role)) { %>
+            <div class="card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); border: 2px solid #3b82f6;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                    <div style="font-size: 1.3rem;">⚖️</div>
+                    <div>
+                        <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">Management Action Panel</h3>
+                        <div style="font-size: 0.75rem; color: #64748b;">HR & Executive Resolution Controls</div>
+                    </div>
+                </div>
+
+                <form action="/incidents/<%= incident.id %>/action" method="POST">
+                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+
+                    <div class="form-group" style="margin-bottom: 14px;">
+                        <label for="actionStatus" style="font-weight: 600; font-size: 0.8rem; color: #334155; margin-bottom: 4px; display: block;">Update Incident Status</label>
+                        <select id="actionStatus" name="status" class="form-control" style="font-weight: 600;">
+                            <option value="under_investigation" <%= incident.status === 'under_investigation' ? 'selected' : '' %>>🔍 Under Investigation</option>
+                            <option value="hr_action_taken" <%= incident.status === 'hr_action_taken' ? 'selected' : '' %>>⚖️ HR Action Taken</option>
+                            <option value="resolved" <%= incident.status === 'resolved' ? 'selected' : '' %>>✅ Resolved</option>
+                            <option value="closed" <%= incident.status === 'closed' ? 'selected' : '' %>>🔒 Closed</option>
+                            <option value="reported" <%= incident.status === 'reported' ? 'selected' : '' %>>📩 Reported (Re-open)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 14px;">
+                        <label for="hrActionType" style="font-weight: 600; font-size: 0.8rem; color: #334155; margin-bottom: 4px; display: block;">Action / Decision Type</label>
+                        <select id="hrActionType" name="hr_action_type" class="form-control">
+                            <option value="none" <%= incident.hr_action_type === 'none' ? 'selected' : '' %>>None / Pending Review</option>
+                            <option value="verbal_warning" <%= incident.hr_action_type === 'verbal_warning' ? 'selected' : '' %>>🗣️ Verbal Warning / Reminder</option>
+                            <option value="written_reprimand" <%= incident.hr_action_type === 'written_reprimand' ? 'selected' : '' %>>📄 Written Notice / NTE / Reprimand</option>
+                            <option value="disciplinary_suspension" <%= incident.hr_action_type === 'disciplinary_suspension' ? 'selected' : '' %>>⛔ Disciplinary Suspension</option>
+                            <option value="medical_endorsement" <%= incident.hr_action_type === 'medical_endorsement' ? 'selected' : '' %>>🏥 Medical / Clinic Referral</option>
+                            <option value="safety_correction" <%= incident.hr_action_type === 'safety_correction' ? 'selected' : '' %>>🦺 Facility / Safety Correction</option>
+                            <option value="counseling" <%= incident.hr_action_type === 'counseling' ? 'selected' : '' %>>🤝 Peer Counseling / Mediation</option>
+                            <option value="termination" <%= incident.hr_action_type === 'termination' ? 'selected' : '' %>>❌ Employment Separation / Pullout</option>
+                            <option value="no_further_action" <%= incident.hr_action_type === 'no_further_action' ? 'selected' : '' %>>✔️ Closed Without Further Action</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 14px;">
+                        <label for="resolutionNotes" style="font-weight: 600; font-size: 0.8rem; color: #334155; margin-bottom: 4px; display: block;">Official Resolution Summary</label>
+                        <textarea id="resolutionNotes" name="hr_resolution_notes" class="form-control" rows="3" placeholder="Enter findings, preventive measures, or final decision..."><%= incident.hr_resolution_notes || '' %></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="actionRemarks" style="font-weight: 600; font-size: 0.8rem; color: #334155; margin-bottom: 4px; display: block;">Log Entry Note (Optional)</label>
+                        <input type="text" id="actionRemarks" name="remarks" class="form-control" placeholder="Brief note posted to timeline...">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; font-weight: 700; padding: 10px;">
+                        💾 Save & Apply Management Action
+                    </button>
+                </form>
+            </div>
+        <% } %>
+
+        <!-- Reporter & Warehouse Summary Card -->
+        <div class="card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;">
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 14px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
+                📋 Incident Metadata
+            </h4>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.85rem;">
+                <div>
+                    <span style="color: #64748b; display: block;">Reference:</span>
+                    <strong style="color: #1e40af;"><%= incident.incident_ref %></strong>
+                </div>
+
+                <div>
+                    <span style="color: #64748b; display: block;">Reporting Coordinator:</span>
+                    <strong><%= incident.reported_by_name %></strong>
+                    <div style="font-size: 0.8rem; color: #64748b;"><%= incident.reported_by_email %></div>
+                </div>
+
+                <div>
+                    <span style="color: #64748b; display: block;">Assigned Warehouse:</span>
+                    <strong><%= incident.area_name %></strong>
+                </div>
+
+                <div>
+                    <span style="color: #64748b; display: block;">First Reported:</span>
+                    <span><%= formatDate(incident.created_at) %></span>
+                </div>
+
+                <div>
+                    <span style="color: #64748b; display: block;">Last Updated:</span>
+                    <span><%= formatDate(incident.updated_at) %></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<%- include('../partials/layout-bottom') %>

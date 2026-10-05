@@ -26,17 +26,27 @@
                     <i class='bx bx-user'></i>
                 </div>
                 <div class="input-box">
-                    <input type="email" name="email" placeholder="Email (@taascor.com)" required>
+                    <input type="text" name="email" placeholder="Username or Company Email" required>
                     <i class='bx bx-envelope'></i>
                 </div>
-                <div class="form-help">Must end with @taascor.com</div>
+                <div class="input-box">
+                    <select name="area_id" required style="width: 100%; height: 100%; background: transparent; border: none; outline: none; font-size: 14px; color: #333; padding-left: 5px; -webkit-appearance: none;">
+                        <option value="" disabled selected>Select Assigned Warehouse / Area *</option>
+                        <% if (typeof areas !== 'undefined' && areas.length) { %>
+                            <% areas.forEach(a => { %>
+                                <option value="<%= a.id %>"><%= a.name %></option>
+                            <% }) %>
+                        <% } %>
+                    </select>
+                    <i class='bx bx-building'></i>
+                </div>
 
                 <div class="input-box">
-                    <input type="password" id="registerPassword" name="password" placeholder="Password (min 8 chars)" minlength="8" required>
+                    <input type="password" id="registerPassword" name="password" placeholder="Password (min 6 chars)" minlength="6" required>
                     <i class='bx bx-lock-alt'></i>
                 </div>
                 <div class="input-box">
-                    <input type="password" id="registerConfirmPassword" name="confirm_password" placeholder="Confirm Password" minlength="8" required>
+                    <input type="password" id="registerConfirmPassword" name="confirm_password" placeholder="Confirm Password" minlength="6" required>
                     <i class='bx bx-check-shield'></i>
                 </div>
 

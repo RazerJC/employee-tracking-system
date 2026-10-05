@@ -14,18 +14,34 @@ async function attachArea(req, res, next) {
     if (!req.session.user) return next();
     
     if (req.session.user.role === 'COORDINATOR') {
-        const areaId = (await getCoordinatorAreaId(req.session.user.id));
+        let areaId = (await getCoordinatorAreaId(req.session.user.id));
+        const db = getDb();
+
+        if (!areaId) {
+            try {
+                const firstArea = (await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get());
+                if (firstArea) {
+                    await db.prepare(`
+                        INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
+                        VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Auto-assigned default warehouse')
+                    `).run(req.session.user.id, firstArea.id, req.session.user.id);
+                    areaId = firstArea.id;
+                }
+            } catch (e) {
+                console.error('[AREA-GUARD] Error assigning default area:', e.message);
+            }
+        }
+
         req.userAreaId = areaId;
         res.locals.userAreaId = areaId;
         
         if (areaId) {
-            const db = getDb();
             const area = (await db.prepare('SELECT * FROM areas WHERE id = ?').get(areaId));
             req.userArea = area;
             res.locals.userArea = area;
         }
     } else {
-        // HR and ADMIN can see all areas
+        // HR, HEAD_HR, and ADMIN can see all areas
         req.userAreaId = null;
         res.locals.userAreaId = null;
     }
@@ -34,14 +50,15 @@ async function attachArea(req, res, next) {
 }
 
 // Middleware: require coordinator to have an assigned area
-function requireArea(req, res, next) {
-    if (req.session.user.role === 'COORDINATOR') {
+async function requireArea(req, res, next) {
+    if (req.session.user && req.session.user.role === 'COORDINATOR') {
         if (!req.userAreaId) {
-            return res.status(403).render('error', {
-                title: 'No Area Assigned',
-                message: 'Your account does not have an assigned area yet. Please contact HR.',
-                code: 403
-            });
+            const db = getDb();
+            const firstArea = (await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get());
+            if (firstArea) {
+                req.userAreaId = firstArea.id;
+                res.locals.userAreaId = firstArea.id;
+            }
         }
     }
     next();

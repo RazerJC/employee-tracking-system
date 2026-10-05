@@ -188,22 +188,24 @@ router.get('/users', requireAuth, requireAdmin, async (req, res) => {
     });
 });
 
-// POST /admin/create-hr (ADMIN only) — creates HR or HEAD_HR
-router.post('/create-hr', requireAuth, requireAdmin, async (req, res) => {
+// POST /admin/create-user (ADMIN only) — creates COORDINATOR, HR, HEAD_HR, or ADMIN
+async function handleCreateUser(req, res) {
     const admin = req.session.user;
     const db = getDb();
-    const { email, password, full_name, role } = req.body;
+    const { email, password, full_name, role, area_id } = req.body;
 
     if (!email || !password || !full_name) {
-        req.flash('error', 'All fields are required.');
+        req.flash('error', 'All required fields must be filled.');
         return res.redirect('/admin/users');
     }
 
-    const allowedRoles = ['HR', 'HEAD_HR'];
+    const allowedRoles = ['COORDINATOR', 'HR', 'HEAD_HR', 'ADMIN'];
     const assignedRole = allowedRoles.includes(role) ? role : 'HR';
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const existing = (await db.prepare('SELECT id FROM users WHERE email = ?').get(trimmedEmail));
+    const trimmedInput = email.trim().toLowerCase();
+    const candidateEmail = trimmedInput.includes('@') ? trimmedInput : `${trimmedInput}@taascor.com`;
+
+    const existing = (await db.prepare('SELECT id FROM users WHERE email = ? OR email = ?').get(trimmedInput, candidateEmail));
     if (existing) {
         req.flash('error', 'An account with that email already exists.');
         return res.redirect('/admin/users');
@@ -211,16 +213,37 @@ router.post('/create-hr', requireAuth, requireAdmin, async (req, res) => {
 
     const hash = bcrypt.hashSync(password, 12);
 
-    (await db.prepare(`
+    const result = (await db.prepare(`
         INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'active', 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-    `).run(trimmedEmail, hash, full_name.trim(), assignedRole));
+        VALUES (?, ?, ?, ?, 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+    `).run(candidateEmail, hash, full_name.trim(), assignedRole));
 
-    (await logAction(admin.id, 'CREATE_USER', 'users', null, { email: trimmedEmail, role: assignedRole }));
+    const newUserId = result.lastInsertRowid;
 
-    req.flash('success', `${assignedRole} account created for ${full_name} (${trimmedEmail}).`);
+    // If coordinator, assign warehouse
+    if (assignedRole === 'COORDINATOR') {
+        let targetAreaId = area_id ? parseInt(area_id) : null;
+        if (!targetAreaId) {
+            const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
+            if (firstArea) targetAreaId = firstArea.id;
+        }
+
+        if (targetAreaId) {
+            await db.prepare(`
+                INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
+                VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Assigned by Administrator')
+            `).run(newUserId, targetAreaId, admin.id);
+        }
+    }
+
+    (await logAction(admin.id, 'CREATE_USER', 'users', newUserId, { email: candidateEmail, role: assignedRole }));
+
+    req.flash('success', `${assignedRole} account created for ${full_name} (${candidateEmail}). Ready for immediate login.`);
     res.redirect('/admin/users');
-});
+}
+
+router.post('/create-user', requireAuth, requireAdmin, handleCreateUser);
+router.post('/create-hr', requireAuth, requireAdmin, handleCreateUser);
 
 // POST /admin/users/:id/toggle-status (ADMIN only)
 router.post('/users/:id/toggle-status', requireAuth, requireAdmin, async (req, res) => {
@@ -254,7 +277,7 @@ router.get('/areas', requireAuth, requireAdminOrHR, async (req, res) => {
     const areas = (await db.prepare(`
         SELECT a.*,
                (SELECT COUNT(*) FROM employees WHERE area_id = a.id AND status = 'active') as active_workers,
-               (SELECT GROUP_CONCAT(DISTINCT u.full_name SEPARATOR ', ') FROM coordinator_area_assignments caa JOIN users u ON caa.user_id = u.id WHERE caa.area_id = a.id AND caa.is_current = 1) as current_coordinator
+               (SELECT GROUP_CONCAT(u.full_name, ', ') FROM coordinator_area_assignments caa JOIN users u ON caa.user_id = u.id WHERE caa.area_id = a.id AND caa.is_current = 1) as current_coordinator
         FROM areas a
         ORDER BY a.name ASC
     `).all());
@@ -356,6 +379,38 @@ router.get('/audit-logs', requireAuth, requireAdmin, async (req, res) => {
         totalPages,
         filters
     });
+});
+
+// POST /admin/users/:id/reset-password (ADMIN only)
+router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+    const admin = req.session.user;
+    const db = getDb();
+    const id = parseInt(req.params.id);
+    const { new_password, confirm_password } = req.body;
+
+    if (!new_password || new_password !== confirm_password) {
+        req.flash('error', 'Passwords do not match.');
+        return res.redirect('/admin/users');
+    }
+
+    if (new_password.length < 8) {
+        req.flash('error', 'Password must be at least 8 characters long.');
+        return res.redirect('/admin/users');
+    }
+
+    const targetUser = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!targetUser) {
+        req.flash('error', 'User not found.');
+        return res.redirect('/admin/users');
+    }
+
+    const hash = bcrypt.hashSync(new_password, 12);
+    await db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = UTC_TIMESTAMP() WHERE id = ?').run(hash, id);
+
+    await logAction(admin.id, 'ADMIN_RESET_PASSWORD', 'users', id, { target_email: targetUser.email });
+
+    req.flash('success', `Password for ${targetUser.full_name} (${targetUser.email}) has been reset successfully.`);
+    res.redirect('/admin/users');
 });
 
 router.get('/staff/:id', requireAuth, requireAdmin, async (req,res) => {

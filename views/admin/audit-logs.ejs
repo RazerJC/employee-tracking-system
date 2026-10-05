@@ -1,79 +1,353 @@
 <%- include('../partials/layout-top') %>
 
-<div class="page-header">
+<style>
+.audit-hero {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #1a3a6b 50%, #0f2040 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 8px 32px rgba(27,42,74,0.3);
+    position: relative;
+    overflow: hidden;
+}
+.audit-hero::before {
+    content: '🔍';
+    position: absolute;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 5rem;
+    opacity: 0.12;
+    pointer-events: none;
+}
+.audit-hero-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+}
+.audit-hero-sub {
+    font-size: 0.88rem;
+    opacity: 0.75;
+}
+.audit-stats {
+    display: flex;
+    gap: 16px;
+    text-align: center;
+}
+.audit-stat {
+    background: rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 10px 20px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.18);
+}
+.audit-stat-num {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-gold, #f59e0b);
+}
+.audit-stat-label {
+    font-size: 0.72rem;
+    opacity: 0.8;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+/* Filter bar */
+.audit-filter-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.07);
+}
+.audit-filter-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 160px 160px auto auto;
+    gap: 12px;
+    align-items: end;
+}
+@media (max-width: 900px) {
+    .audit-filter-form { grid-template-columns: 1fr 1fr; }
+    .audit-hero { flex-direction: column; gap: 16px; }
+    .audit-stats { flex-wrap: wrap; }
+}
+.audit-filter-form label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-gray-500, #6b7280);
+    margin-bottom: 6px;
+}
+/* Action badge colors */
+.action-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.action-LOGIN    { background: rgba(16,185,129,0.15); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
+.action-LOGOUT   { background: rgba(107,114,128,0.15); color: #6b7280; border: 1px solid rgba(107,114,128,0.3); }
+.action-REGISTER { background: rgba(59,130,246,0.15); color: #2563eb; border: 1px solid rgba(59,130,246,0.3); }
+.action-ATTENDANCE, .action-RECORD_ATTENDANCE, .action-SAVE_ATTENDANCE_API { background: rgba(245,158,11,0.15); color: #d97706; border: 1px solid rgba(245,158,11,0.3); }
+.action-EMPLOYEE, .action-CREATE_EMPLOYEE, .action-UPDATE_EMPLOYEE, .action-DEACTIVATE_EMPLOYEE, .action-REACTIVATE_EMPLOYEE, .action-DELETE_EMPLOYEE { background: rgba(139,92,246,0.15); color: #7c3aed; border: 1px solid rgba(139,92,246,0.3); }
+.action-ADMIN, .action-CREATE_USER, .action-TOGGLE_USER_STATUS, .action-APPROVE_COORDINATOR, .action-REJECT_COORDINATOR { background: rgba(239,68,68,0.15); color: #dc2626; border: 1px solid rgba(239,68,68,0.3); }
+.action-default  { background: rgba(27,42,74,0.1); color: var(--color-primary); border: 1px solid rgba(27,42,74,0.2); }
+/* Entity badge */
+.entity-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    color: var(--color-gray-600, #4b5563);
+}
+/* Details expansion */
+.details-cell {
+    max-width: 280px;
+}
+.details-code {
+    font-size: 0.72rem;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 4px 8px;
+    word-break: break-word;
+    max-height: 56px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: max-height 0.2s ease;
+    display: block;
+}
+.details-code.expanded { max-height: 200px; }
+/* User column */
+.user-col { display: flex; align-items: center; gap: 8px; }
+.user-avatar-sm {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), #3b82f6);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+/* Zebra rows */
+.data-table tbody tr:nth-child(odd) { background: rgba(248,250,252,0.8); }
+.data-table tbody tr:hover { background: rgba(27,42,74,0.05) !important; }
+/* Timeline dot */
+.time-cell { color: var(--color-gray-500); font-size: 0.82rem; white-space: nowrap; }
+/* IP */
+.ip-badge {
+    font-size: 0.72rem;
+    font-family: monospace;
+    color: #64748b;
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+</style>
+
+<%
+// Compute per-page stats
+const actionCounts = {};
+logs.forEach(l => { const k = (l.action||'').split('_')[0]; actionCounts[k] = (actionCounts[k]||0)+1; });
+const topAction = Object.entries(actionCounts).sort((a,b)=>b[1]-a[1])[0];
+
+function getActionClass(action) {
+    if (!action) return 'action-default';
+    const a = action.toUpperCase();
+    if (a === 'LOGIN') return 'action-LOGIN';
+    if (a === 'LOGOUT') return 'action-LOGOUT';
+    if (a === 'REGISTER') return 'action-REGISTER';
+    if (a.includes('ATTENDANCE') || a.includes('TIME_IN') || a.includes('TIME_OUT')) return 'action-ATTENDANCE';
+    if (a.includes('EMPLOYEE')) return 'action-EMPLOYEE';
+    if (a.includes('COORDINATOR') || a.includes('USER') || a.includes('APPROVE') || a.includes('REJECT')) return 'action-ADMIN';
+    return 'action-default';
+}
+%>
+
+<div class="audit-hero">
     <div>
-        <h2>System Audit Logs</h2>
-        <div class="breadcrumb">
-            <a href="/dashboard">Dashboard</a>
-            <span>/</span>
-            <span>Security & Operational Audit Trail</span>
+        <div class="audit-hero-title">🔒 System Audit Trail</div>
+        <div class="audit-hero-sub">Complete security and operational event log • Timestamps in Asia/Manila</div>
+        <div style="margin-top:8px;">
+            <a href="/dashboard" style="color:rgba(255,255,255,0.6);font-size:0.8rem;text-decoration:none;">Dashboard</a>
+            <span style="color:rgba(255,255,255,0.4);margin:0 6px;">/</span>
+            <span style="color:rgba(255,255,255,0.85);font-size:0.8rem;">Audit Logs</span>
         </div>
+    </div>
+    <div class="audit-stats">
+        <div class="audit-stat">
+            <div class="audit-stat-num"><%= total.toLocaleString() %></div>
+            <div class="audit-stat-label">Total Events</div>
+        </div>
+        <div class="audit-stat">
+            <div class="audit-stat-num"><%= page %> / <%= totalPages || 1 %></div>
+            <div class="audit-stat-label">Page</div>
+        </div>
+        <% if (topAction) { %>
+        <div class="audit-stat">
+            <div class="audit-stat-num" style="font-size:1rem;"><%= topAction[0] %></div>
+            <div class="audit-stat-label">Top Action</div>
+        </div>
+        <% } %>
     </div>
 </div>
 
 <!-- Filters -->
-<form method="GET" action="/admin/audit-logs" class="filter-bar">
-    <div class="filter-group">
-        <label for="action">Action Keyword</label>
-        <input type="text" id="action" name="action" class="form-control" placeholder="e.g. LOGIN, ATTENDANCE" value="<%= filters.action %>">
+<div class="audit-filter-card">
+    <form method="GET" action="/admin/audit-logs" class="audit-filter-form" id="auditFilterForm">
+        <div>
+            <label for="action">Action Keyword</label>
+            <input type="text" id="action" name="action" class="form-control" placeholder="e.g. LOGIN, ATTENDANCE" value="<%= filters.action %>">
+        </div>
+        <div>
+            <label for="entity_type">Entity Type</label>
+            <input type="text" id="entity_type" name="entity_type" class="form-control" placeholder="e.g. users, employees" value="<%= filters.entityType %>">
+        </div>
+        <div>
+            <label for="date_from">Date From</label>
+            <input type="date" id="date_from" name="date_from" class="form-control" value="<%= filters.dateFrom %>">
+        </div>
+        <div>
+            <label for="date_to">Date To</label>
+            <input type="date" id="date_to" name="date_to" class="form-control" value="<%= filters.dateTo %>">
+        </div>
+        <div>
+            <label>&nbsp;</label>
+            <button type="submit" class="btn btn-primary" style="width:100%;">🔍 Filter</button>
+        </div>
+        <div>
+            <label>&nbsp;</label>
+            <% if (filters.action || filters.entityType || filters.dateFrom || filters.dateTo) { %>
+                <a href="/admin/audit-logs" class="btn btn-outline" style="width:100%;text-align:center;display:block;">✕ Reset</a>
+            <% } else { %>
+                <button type="button" class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('auditFilterForm').reset()">Clear</button>
+            <% } %>
+        </div>
+    </form>
+    <% if (filters.action || filters.entityType || filters.dateFrom || filters.dateTo) { %>
+    <div style="margin-top:10px;font-size:0.82rem;color:var(--color-primary);font-weight:600;">
+        🔎 Filtered results — showing <strong><%= logs.length %></strong> of <strong><%= total %></strong> matching events
     </div>
+    <% } %>
+</div>
 
-    <div class="filter-group">
-        <label for="entity_type">Entity Type</label>
-        <input type="text" id="entity_type" name="entity_type" class="form-control" placeholder="e.g. employees, users" value="<%= filters.entityType %>">
-    </div>
-
-    <div class="filter-group">
-        <label for="date_from">Date From</label>
-        <input type="date" id="date_from" name="date_from" class="form-control" value="<%= filters.dateFrom %>">
-    </div>
-
-    <div class="filter-group">
-        <label for="date_to">Date To</label>
-        <input type="date" id="date_to" name="date_to" class="form-control" value="<%= filters.dateTo %>">
-    </div>
-
-    <div style="display: flex; gap: 8px;">
-        <button type="submit" class="btn btn-outline">Filter</button>
-        <% if (filters.action || filters.entityType || filters.dateFrom || filters.dateTo) { %>
-            <a href="/admin/audit-logs" class="btn btn-ghost">Reset</a>
-        <% } %>
-    </div>
-</form>
-
-<!-- Logs Table -->
-<div class="card">
-    <div class="card-header">
-        <h3>Audit Events (<%= total %> Total Records)</h3>
+<!-- Audit Table -->
+<div class="card" style="border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(90deg,var(--color-primary),#1e4d8c);">
+        <h3 style="color:white;margin:0;font-size:1rem;">
+            📋 Audit Events
+            <span style="font-size:0.8rem;font-weight:400;opacity:0.8;margin-left:8px;"><%= total.toLocaleString() %> total records</span>
+        </h3>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.8rem;">50 per page</div>
     </div>
     <div class="card-body" style="padding: 0;">
         <div class="table-responsive">
-            <table class="data-table">
+            <table class="data-table" style="min-width:900px;">
                 <thead>
                     <tr>
-                        <th>Timestamp (Asia/Manila)</th>
-                        <th>User</th>
-                        <th>Role</th>
-                        <th>Action</th>
-                        <th>Target Entity</th>
-                        <th>IP Address</th>
+                        <th style="width:150px;">Timestamp</th>
+                        <th style="width:180px;">User</th>
+                        <th style="width:90px;">Role</th>
+                        <th style="width:200px;">Action</th>
+                        <th style="width:160px;">Target</th>
+                        <th style="width:110px;">IP Address</th>
                         <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% if (logs.length === 0) { %>
-                        <tr><td colspan="7" class="text-center" style="padding: 32px;">No audit records matching your criteria.</td></tr>
+                        <tr>
+                            <td colspan="7" style="text-align:center;padding:56px 24px;">
+                                <div style="font-size:3rem;margin-bottom:12px;">📭</div>
+                                <div style="font-size:1rem;font-weight:600;color:var(--color-gray-600);">No audit records found</div>
+                                <div style="font-size:0.85rem;color:var(--color-gray-400);margin-top:4px;">Try adjusting your filters or clearing the search.</div>
+                            </td>
+                        </tr>
                     <% } else { %>
-                        <% logs.forEach(log => { %>
+                        <% logs.forEach((log, idx) => { %>
                             <tr>
-                                <td><%= formatDateTime(log.created_at) %></td>
-                                <td><strong><%= log.user_name || 'System' %></strong></td>
-                                <td><span class="badge badge-secondary"><%= log.user_role || 'SYS' %></span></td>
-                                <td><code style="color: var(--color-primary); font-weight: 600;"><%= log.action %></code></td>
-                                <td><%= log.entity_type || '—' %> #<%= log.entity_id || '—' %></td>
-                                <td><span class="text-muted"><%= log.ip_address || '—' %></span></td>
-                                <td style="font-size: 0.78rem; max-width: 300px; word-break: break-all;">
-                                    <code><%= log.details || '—' %></code>
+                                <td class="time-cell">
+                                    <div style="font-weight:600;font-size:0.82rem;color:#1e293b;"><%= formatDate(log.created_at) %></div>
+                                    <div style="font-size:0.72rem;color:#94a3b8;margin-top:1px;">
+                                        <% try { const d = new Date(log.created_at.replace(' ','T')+'Z'); const ph = new Date(d.getTime() + 8*3600000); %>
+                                        <%= ph.toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) %>
+                                        <% } catch(e) { %><%= log.created_at %><% } %>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="user-col">
+                                        <div class="user-avatar-sm">
+                                            <%= (log.user_name || 'S').substring(0,2) %>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight:600;font-size:0.85rem;color:#1e293b;"><%= log.user_name || 'System' %></div>
+                                            <div style="font-size:0.7rem;color:#94a3b8;">ID #<%= log.user_id || '—' %></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <% if (log.user_role === 'ADMIN') { %>
+                                        <span class="badge" style="background:var(--color-gold,#f59e0b);color:#7c2d12;font-weight:700;font-size:0.7rem;">ADMIN</span>
+                                    <% } else if (log.user_role === 'HEAD_HR') { %>
+                                        <span class="badge" style="background:rgba(59,130,246,0.15);color:#1d4ed8;border:1px solid rgba(59,130,246,0.3);font-size:0.7rem;">HEAD HR</span>
+                                    <% } else if (log.user_role === 'HR') { %>
+                                        <span class="badge" style="background:rgba(139,26,26,0.1);color:#991b1b;border:1px solid rgba(139,26,26,0.2);font-size:0.7rem;">HR</span>
+                                    <% } else if (log.user_role) { %>
+                                        <span class="badge badge-secondary" style="font-size:0.7rem;"><%= log.user_role %></span>
+                                    <% } else { %>
+                                        <span style="color:#94a3b8;font-size:0.75rem;">SYS</span>
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <span class="action-badge <%= getActionClass(log.action) %>">
+                                        <%= log.action %>
+                                    </span>
+                                </td>
+                                <td>
+                                    <% if (log.entity_type) { %>
+                                        <span class="entity-chip">
+                                            📂 <%= log.entity_type %>
+                                            <% if (log.entity_id) { %><span style="opacity:0.5;">#<%= log.entity_id %></span><% } %>
+                                        </span>
+                                    <% } else { %>
+                                        <span style="color:#cbd5e1;">—</span>
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <% if (log.ip_address) { %>
+                                        <span class="ip-badge"><%= log.ip_address %></span>
+                                    <% } else { %>
+                                        <span style="color:#e2e8f0;">—</span>
+                                    <% } %>
+                                </td>
+                                <td class="details-cell">
+                                    <% if (log.details && log.details !== 'null') { %>
+                                        <code class="details-code" id="detail-<%= idx %>" onclick="this.classList.toggle('expanded')" title="Click to expand">
+                                            <%= (() => { try { return JSON.stringify(JSON.parse(log.details), null, 1); } catch(e) { return log.details; } })() %>
+                                        </code>
+                                    <% } else { %>
+                                        <span style="color:#e2e8f0;font-size:0.78rem;">—</span>
+                                    <% } %>
                                 </td>
                             </tr>
                         <% }) %>
@@ -86,15 +360,23 @@
 
 <!-- Pagination -->
 <% if (totalPages > 1) { %>
-    <div class="pagination">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:24px;padding:8px 0;">
         <% if (page > 1) { %>
-            <a href="/admin/audit-logs?page=<%= page - 1 %>&action=<%= encodeURIComponent(filters.action) %>&entity_type=<%= encodeURIComponent(filters.entityType) %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>">« Previous</a>
+            <a href="/admin/audit-logs?page=1&action=<%= encodeURIComponent(filters.action) %>&entity_type=<%= encodeURIComponent(filters.entityType) %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>"
+               class="btn btn-ghost btn-sm">« First</a>
+            <a href="/admin/audit-logs?page=<%= page - 1 %>&action=<%= encodeURIComponent(filters.action) %>&entity_type=<%= encodeURIComponent(filters.entityType) %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>"
+               class="btn btn-outline btn-sm">‹ Previous</a>
         <% } %>
 
-        <span class="active">Page <%= page %> of <%= totalPages %></span>
+        <span style="padding:8px 20px;background:var(--color-primary);color:white;border-radius:8px;font-weight:700;font-size:0.85rem;">
+            Page <%= page %> of <%= totalPages %>
+        </span>
 
         <% if (page < totalPages) { %>
-            <a href="/admin/audit-logs?page=<%= page + 1 %>&action=<%= encodeURIComponent(filters.action) %>&entity_type=<%= encodeURIComponent(filters.entityType) %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>">Next »</a>
+            <a href="/admin/audit-logs?page=<%= page + 1 %>&action=<%= encodeURIComponent(filters.action) %>&entity_type=<%= encodeURIComponent(filters.entityType) %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>"
+               class="btn btn-outline btn-sm">Next ›</a>
+            <a href="/admin/audit-logs?page=<%= totalPages %>&action=<%= encodeURIComponent(filters.action) %>&entity_type=<%= encodeURIComponent(filters.entityType) %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>"
+               class="btn btn-ghost btn-sm">Last »</a>
         <% } %>
     </div>
 <% } %>

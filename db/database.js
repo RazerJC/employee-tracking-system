@@ -1,90 +1,27 @@
-require('dotenv').config();
-const mysql = require('mysql2/promise');
-const fs = require('fs');
-const path = require('path');
-const { AsyncLocalStorage } = require('async_hooks');
-let pool;
-const transactions = new AsyncLocalStorage();
+// Redirect all database access to the SQLite implementation.
+// The original MySQL database.js has been superseded by database-sqlite.js
+// for local development. All routes/services require('./database') and get SQLite.
+const sqlite = require('./database-sqlite');
 
-function databaseOptions() {
-    for (const key of ['DB_HOST', 'DB_USER', 'DB_NAME']) {
-        if (!process.env[key]) throw new Error(key + ' is required. Configure MySQL in .env or your hosting panel.');
-    }
-    return {
-        host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306),
-        user: process.env.DB_USER, password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME, charset: 'utf8mb4_unicode_ci',
-        timezone: 'Z', dateStrings: true, decimalNumbers: true,
-        waitForConnections: true, connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 5),
-        queueLimit: 100, multipleStatements: false,
-        ...(process.env.DB_SSL === 'true' ? { ssl: {
-            rejectUnauthorized: true,
-            ...(process.env.DB_SSL_CA ? { ca: fs.readFileSync(process.env.DB_SSL_CA, 'utf8') } : {})
-        } } : {})
-    };
-}
-function getPool() {
-    if (!pool) {
-        pool = mysql.createPool(databaseOptions());
-        pool.on('connection', connection => {
-            connection.query("SET time_zone = '+00:00'", error => {
-                if (error) connection.destroy();
-            });
-        });
-    }
-    return pool;
-}
-function parameter(value) {
-    if (value === undefined) return null;
-    // Convert the existing ISO token timestamps to UTC MySQL DATETIME values.
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
-        return new Date(value).toISOString().slice(0, 19).replace('T', ' ');
-    }
-    return value;
-}
-const database = {
-    prepare(sql) {
-        const query = async params => {
-            const connection = transactions.getStore() || getPool();
-            const [result] = await connection.execute(sql, params.map(parameter));
-            return result;
-        };
-        return {
-            async get(...params) { return (await query(params))[0]; },
-            async all(...params) { return query(params); },
-            async run(...params) {
-                const result = await query(params);
-                return { changes: result.affectedRows, lastInsertRowid: result.insertId };
-            }
-        };
-    },
-    async exec(sql) { return (transactions.getStore() || getPool()).query(sql); },
-    transaction(fn) {
-        return async (...args) => {
-            if (transactions.getStore()) return fn(...args);
-            const connection = await getPool().getConnection();
-            try {
-                await connection.beginTransaction();
-                const result = await transactions.run(connection, () => fn(...args));
-                await connection.commit();
-                return result;
-            } catch (error) {
-                await connection.rollback();
-                throw error;
-            } finally { connection.release(); }
-        };
-    }
-};
-function getDb() { return database; }
 async function initializeDb() {
-    const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-    for (const sql of schema.replace(/^--.*$/gm, '').split(';').map(s => s.trim()).filter(Boolean)) {
-        await database.exec(sql);
-    }
-    return database;
+    return sqlite.initializeDb();
 }
+
 async function closeDb() {
-    if (pool) { const current = pool; pool = undefined; await current.end(); }
+    return sqlite.closeDb();
 }
-function runTransaction(fn) { return database.transaction(fn)(); }
-module.exports = { getDb, getPool, initializeDb, runTransaction, closeDb, databaseOptions };
+
+function getDb() {
+    return sqlite.getDb();
+}
+
+function runTransaction(fn) {
+    return sqlite.runTransaction(fn);
+}
+
+// Stub getPool so session-store doesn't crash — we replace the session store too
+function getPool() {
+    return null;
+}
+
+module.exports = { getDb, getPool, initializeDb, runTransaction, closeDb };

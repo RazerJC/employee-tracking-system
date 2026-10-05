@@ -185,15 +185,15 @@ router.post('/', requireAuth, requireArea, async (req, res) => {
     const upsertStmt = db.prepare(`
         INSERT INTO employee_attendance (employee_id, schedule_id, work_date, status, time_in, time_out, remarks, recorded_by, recorded_at, version)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), 1)
-        ON DUPLICATE KEY UPDATE
-            schedule_id = VALUES(schedule_id),
-            status = VALUES(status),
-            time_in = VALUES(time_in),
-            time_out = VALUES(time_out),
-            remarks = VALUES(remarks),
-            updated_by = VALUES(recorded_by),
+        ON CONFLICT(employee_id, work_date) DO UPDATE SET
+            schedule_id = excluded.schedule_id,
+            status = excluded.status,
+            time_in = excluded.time_in,
+            time_out = excluded.time_out,
+            remarks = excluded.remarks,
+            updated_by = excluded.recorded_by,
             updated_at = UTC_TIMESTAMP(),
-            version = version + 1
+            version = employee_attendance.version + 1
     `);
 
     // Valid statuses from PHP system + existing

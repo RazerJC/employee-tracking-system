@@ -9,6 +9,8 @@
     "seed": "node db/seed.js",
     "seed:coordinators": "node scripts/seed-coordinators-warehouses.js",
     "accounts:list": "node scripts/list-all-accounts.js",
+    "accounts:test": "node scripts/test-all-accounts-flow.js",
+    "accounts:fix": "node scripts/fix-and-verify-all-accounts.js",
     "backup": "node db/backup.js",
     "db:init": "node db/init.js",
     "db:import-sqlite": "node db/import-sqlite.js",

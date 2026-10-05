@@ -65,6 +65,7 @@ async function getMenuGlow(user) {
         '/btw': 0,
         '/concerns': 0,
         '/manpower': 0,
+        '/incidents': 0,
         '/admin/pending-coordinators': 0,
         '/coordinator-attendance': 0,
         '/attendance': 0,
@@ -90,7 +91,7 @@ async function getMenuGlow(user) {
         }
 
         // 2. Role-specific actionable pending counts for HR and ADMIN
-        if (user.role === 'HR' || user.role === 'ADMIN') {
+        if (user.role === 'HR' || user.role === 'ADMIN' || user.role === 'HEAD_HR') {
             const pendingBtw = (await db.prepare(
                 "SELECT COUNT(*) as c FROM btw_cases WHERE status IN ('pending_hr_review', 'for_clarification')"
             ).get());
@@ -113,10 +114,17 @@ async function getMenuGlow(user) {
             }
 
             const pendingManpower = (await db.prepare(
-                "SELECT COUNT(*) as c FROM manpower_requests WHERE status = 'pending'"
+                "SELECT COUNT(*) as c FROM manpower_requests WHERE status = 'pending' OR status = 'submitted'"
             ).get());
             if (pendingManpower && pendingManpower.c > 0) {
                 glow['/manpower'] = Math.max(glow['/manpower'], Number(pendingManpower.c));
+            }
+
+            const activeIncidents = (await db.prepare(
+                "SELECT COUNT(*) as c FROM incident_reports WHERE status IN ('reported', 'under_investigation')"
+            ).get());
+            if (activeIncidents && activeIncidents.c > 0) {
+                glow['/incidents'] = Math.max(glow['/incidents'], Number(activeIncidents.c));
             }
         } else if (user.role === 'COORDINATOR') {
             const coordinatorAreaId = user.area_id;

@@ -10,51 +10,73 @@
         </div>
     </div>
     <div>
-        <button type="button" class="btn btn-primary" onclick="document.getElementById('createHrCard').style.display = document.getElementById('createHrCard').style.display === 'none' ? 'block' : 'none'">
-            ➕ Create HR Account
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('createAccountCard').style.display = document.getElementById('createAccountCard').style.display === 'none' ? 'block' : 'none'">
+            ➕ Create New Account
         </button>
     </div>
 </div>
 
-<!-- Create HR Account Form (Collapsible) -->
-<div id="createHrCard" class="card mb-3" style="display: none; border: 2px solid var(--color-primary);">
+<!-- Create Account Form (Collapsible) -->
+<div id="createAccountCard" class="card mb-3" style="display: none; border: 2px solid var(--color-primary);">
     <div class="card-header" style="background: rgba(27,42,74,0.05);">
-        <h3>Create New HR Account</h3>
+        <h3>Create New User Account</h3>
     </div>
     <div class="card-body">
-        <form action="/admin/create-hr" method="POST">
+        <form action="/admin/create-user" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="hr_name">Full Name <span class="required">*</span></label>
-                    <input type="text" id="hr_name" name="full_name" class="form-control" placeholder="e.g. Maria Santos" required>
+                    <label for="acc_name">Full Name <span class="required">*</span></label>
+                    <input type="text" id="acc_name" name="full_name" class="form-control" placeholder="e.g. Maria Santos" required>
                 </div>
                 <div class="form-group">
-                    <label for="hr_email">Company Email <span class="required">*</span></label>
-                    <input type="email" id="hr_email" name="email" class="form-control" placeholder="hr.name@taascor.com" required>
+                    <label for="acc_email">Username or Company Email <span class="required">*</span></label>
+                    <input type="text" id="acc_email" name="email" class="form-control" placeholder="e.g. maria.santos or maria.santos@taascor.com" required>
                 </div>
                 <div class="form-group">
-                    <label for="hr_password">Initial Password <span class="required">*</span></label>
-                    <input type="password" id="hr_password" name="password" class="form-control" required minlength="8">
-                    <div class="form-help">Default password if creating on user's behalf.</div>
+                    <label for="acc_password">Initial Password <span class="required">*</span></label>
+                    <input type="password" id="acc_password" name="password" class="form-control" placeholder="Min 6 characters" required minlength="6">
+                    <div class="form-help">Initial password for this account.</div>
                 </div>
                 <div class="form-group">
-                    <label for="hr_role">Account Role <span class="required">*</span></label>
-                    <select id="hr_role" name="role" class="form-control" required>
-                        <option value="HEAD_HR">Head HR (Coordinator Attendance Monitor)</option>
+                    <label for="acc_role">Account Role <span class="required">*</span></label>
+                    <select id="acc_role" name="role" class="form-control" required onchange="toggleAreaSelect(this.value)">
+                        <option value="COORDINATOR">Coordinator (Warehouse In-Charge)</option>
                         <option value="HR">HR Staff (General Operations)</option>
+                        <option value="HEAD_HR">Head HR (Coordinator Attendance Monitor)</option>
+                        <option value="ADMIN">System Administrator (Full Access)</option>
                     </select>
+                </div>
+                <div class="form-group" id="areaSelectGroup">
+                    <label for="acc_area">Assigned Warehouse / Area <span class="required">*</span></label>
+                    <select id="acc_area" name="area_id" class="form-control">
+                        <% if (typeof areas !== 'undefined' && areas.length) { %>
+                            <% areas.forEach(a => { %>
+                                <option value="<%= a.id %>"><%= a.name %></option>
+                            <% }) %>
+                        <% } %>
+                    </select>
+                    <div class="form-help">Designated workplace for this coordinator.</div>
                 </div>
             </div>
 
             <div class="btn-group">
                 <button type="submit" class="btn btn-primary">Create Account</button>
-                <button type="button" class="btn btn-outline" onclick="document.getElementById('createHrCard').style.display = 'none'">Cancel</button>
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('createAccountCard').style.display = 'none'">Cancel</button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+function toggleAreaSelect(role) {
+    const group = document.getElementById('areaSelectGroup');
+    if (group) {
+        group.style.display = role === 'COORDINATOR' ? 'block' : 'none';
+    }
+}
+</script>
 
 <!-- User Accounts Table -->
 <div class="card">
@@ -105,6 +127,10 @@
                             <td><%= u.last_login_at ? formatDateTime(u.last_login_at) : 'Never' %></td>
                             <td class="text-right">
                                 <% if (u.id !== user.id) { %>
+                                    <button type="button" class="btn btn-sm btn-outline" style="color: var(--color-primary); margin-right: 4px;"
+                                            onclick="openResetPasswordModal('<%= u.id %>', '<%= u.full_name %>', '<%= u.email %>')">
+                                        🔑 Reset Password
+                                    </button>
                                     <form action="/admin/users/<%= u.id %>/toggle-status" method="POST" style="display: inline;">
                                         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                                         <% if (u.status === 'active') { %>
@@ -176,6 +202,60 @@ function openReassignModal(id, name) {
     document.getElementById('reassignUserId').value = id;
     document.getElementById('reassignUserName').textContent = name;
     document.getElementById('reassignModal').style.display = 'flex';
+}
+</script>
+
+<!-- Modal: Reset Password -->
+<div id="resetPasswordModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 440px; width: 90%; margin: auto; background: white;">
+        <div class="card-header" style="background: rgba(139,26,26,0.06); border-bottom: 2px solid rgba(139,26,26,0.2);">
+            <h3 style="color: var(--color-danger);">🔑 Reset User Password</h3>
+            <button type="button" class="alert-close" onclick="closeResetPasswordModal()">×</button>
+        </div>
+        <div class="card-body">
+            <p style="font-size: 0.88rem; color: var(--color-gray-600); margin-bottom: 16px;">
+                Resetting password for: <strong id="resetPwUserName"></strong><br>
+                <span style="font-size:0.82rem; color: var(--color-gray-500);" id="resetPwUserEmail"></span>
+            </p>
+            <div id="resetPwError" style="display:none; background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:0.85rem;"></div>
+            <form id="resetPwForm" method="POST" onsubmit="return validateResetPasswordForm()">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="user_id" id="resetPwUserId">
+
+                <div class="form-group">
+                    <label for="resetPwNewPassword">New Password <span class="required">*</span></label>
+                    <input type="password" id="resetPwNewPassword" name="new_password" class="form-control"
+                           placeholder="Min 8 characters" required minlength="8" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="resetPwConfirmPassword">Confirm New Password <span class="required">*</span></label>
+                    <input type="password" id="resetPwConfirmPassword" name="confirm_password" class="form-control"
+                           placeholder="Re-enter new password" required minlength="8" autocomplete="new-password">
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary" style="background: var(--color-danger); border-color: var(--color-danger);">Reset Password</button>
+                    <button type="button" class="btn btn-outline" onclick="closeResetPasswordModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Dynamically set the form action based on the selected user
+document.getElementById('resetPasswordModal').addEventListener('click', function(e) {
+    if (e.target === this) closeResetPasswordModal();
+});
+function openResetPasswordModal(id, name, email) {
+    document.getElementById('resetPwUserId').value = id;
+    document.getElementById('resetPwUserName').textContent = name;
+    document.getElementById('resetPwUserEmail').textContent = email;
+    document.getElementById('resetPwNewPassword').value = '';
+    document.getElementById('resetPwConfirmPassword').value = '';
+    document.getElementById('resetPwError').style.display = 'none';
+    document.getElementById('resetPwForm').action = '/admin/users/' + id + '/reset-password';
+    document.getElementById('resetPasswordModal').style.display = 'flex';
 }
 </script>
 

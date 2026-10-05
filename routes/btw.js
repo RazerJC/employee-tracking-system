@@ -33,7 +33,7 @@ router.get('/', requireAuth, async (req, res) => {
             SELECT id FROM btw_hr_actions WHERE case_id = b.id ORDER BY id DESC LIMIT 1
         )
         ${countWhereClause}
-        GROUP BY b.status, action_type
+        GROUP BY 1, 2
     `).all(...countParams));
 
     const counts = {

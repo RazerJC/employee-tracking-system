@@ -185,6 +185,7 @@ app.use('/coordinator-attendance', require('./routes/coordinator-attendance'));
 app.use('/concerns', require('./routes/concerns'));
 app.use('/btw', require('./routes/btw'));
 app.use('/manpower', require('./routes/manpower'));
+app.use('/incidents', require('./routes/incidents'));
 app.use('/notifications', require('./routes/notifications'));
 app.use('/admin', require('./routes/admin'));
 app.use('/departments', require('./routes/departments'));
@@ -223,16 +224,45 @@ async function start(port = PORT) {
     await initializeDb();
     await createInitialAdmin();
     
-    // Ensure HR account exists
+    // Ensure all standard role accounts exist and are ready
     const db = getDb();
-    const hrAccount = await db.prepare("SELECT id FROM users WHERE email = 'hr'").get();
+    const bcrypt = require('bcryptjs');
+
+    // 1. HR Account
+    const hrAccount = await db.prepare("SELECT id FROM users WHERE email = 'hr' OR email = 'hr@taascor.com'").get();
     if (!hrAccount) {
-        const bcrypt = require('bcryptjs');
-        const hrHash = bcrypt.hashSync('hr', 12);
+        const hrHash = bcrypt.hashSync('hr@2026', 12);
         await db.prepare(
-            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, created_at, updated_at)
-             VALUES ('hr', ?, 'HR Staff', 'HR', 'active', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
+            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
+             VALUES ('hr@taascor.com', ?, 'HR Staff', 'HR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
         ).run(hrHash);
+    }
+
+    // 2. Head HR Account
+    const headHrAccount = await db.prepare("SELECT id FROM users WHERE role = 'HEAD_HR' OR email = 'headhr@taascor.com'").get();
+    if (!headHrAccount) {
+        const headHrHash = bcrypt.hashSync('headhr@2026', 12);
+        await db.prepare(
+            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
+             VALUES ('headhr@taascor.com', ?, 'Head HR Coordinator', 'HEAD_HR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
+        ).run(headHrHash);
+    }
+
+    // 3. Generic Coordinator Account
+    const coordAccount = await db.prepare("SELECT id FROM users WHERE email = 'coordinator' OR email = 'coordinator@taascor.com'").get();
+    if (!coordAccount) {
+        const coordHash = bcrypt.hashSync('coordinator', 12);
+        const res = await db.prepare(
+            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
+             VALUES ('coordinator@taascor.com', ?, 'Coordinator Staff', 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
+        ).run(coordHash);
+        const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
+        if (firstArea) {
+            await db.prepare(`
+                INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
+                VALUES (?, ?, 1, UTC_TIMESTAMP(), 1, 'Default warehouse assignment')
+            `).run(res.lastInsertRowid, firstArea.id);
+        }
     }
 
     // Ensure all coordinators and warehouses from roster are synchronized
