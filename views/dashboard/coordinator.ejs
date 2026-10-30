@@ -81,11 +81,7 @@
                                 <% if (ownAttendance.time_in_photo) { %>
                                     <img src="<%= ownAttendance.time_in_photo %>" onclick="openLightbox(this.src)" title="Time-In Photo (Click to zoom)" alt="Time-In Photo" style="width:34px;height:34px;border-radius:6px;object-fit:cover;border:2px solid #059669;cursor:pointer;">
                                 <% } %>
-                                <% if (ownAttendance.time_in_lat && ownAttendance.time_in_lng) { %>
-                                    <a href="https://www.google.com/maps?q=<%= ownAttendance.time_in_lat %>,<%= ownAttendance.time_in_lng %>" target="_blank" rel="noopener" title="<%= ownAttendance.time_in_location || 'GPS Location' %> (Open Map)" style="font-size:0.75rem;color:#059669;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:2px;">
-                                        📍 <u><%= (ownAttendance.time_in_location || 'Map').slice(0, 20) %></u>
-                                    </a>
-                                <% } %>
+                                
                             </div>
 
                             <% if (ownAttendance.time_out) { %>
@@ -95,11 +91,7 @@
                                     <% if (ownAttendance.time_out_photo) { %>
                                         <img src="<%= ownAttendance.time_out_photo %>" onclick="openLightbox(this.src)" title="Time-Out Photo (Click to zoom)" alt="Time-Out Photo" style="width:34px;height:34px;border-radius:6px;object-fit:cover;border:2px solid #2563eb;cursor:pointer;">
                                     <% } %>
-                                    <% if (ownAttendance.time_out_lat && ownAttendance.time_out_lng) { %>
-                                        <a href="https://www.google.com/maps?q=<%= ownAttendance.time_out_lat %>,<%= ownAttendance.time_out_lng %>" target="_blank" rel="noopener" title="<%= ownAttendance.time_out_location || 'GPS Location' %> (Open Map)" style="font-size:0.75rem;color:#2563eb;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:2px;">
-                                            📍 <u><%= (ownAttendance.time_out_location || 'Map').slice(0, 20) %></u>
-                                        </a>
-                                    <% } %>
+                                    
                                 </div>
                             <% } else { %>
                                 <span class="badge badge-warning" style="padding: 4px 10px; font-weight: 600;">Shift In Progress</span>

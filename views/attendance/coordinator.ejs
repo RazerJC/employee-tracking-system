@@ -456,12 +456,7 @@
             <div class="lbl">🟢 Time-In</div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="val time-in-val"><%= formatTime(todayRecord.time_in) %></div>
-                <% if (todayRecord.time_in_lat && todayRecord.time_in_lng) { %>
-                    <a href="https://www.google.com/maps?q=<%= todayRecord.time_in_lat %>,<%= todayRecord.time_in_lng %>" target="_blank" rel="noopener" title="<%= todayRecord.time_in_location || 'GPS Location' %> (Open Map)" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#059669;background:#f0fdf4;padding:3px 9px;border-radius:12px;text-decoration:none;border:1px solid #bbf7d0;font-weight:600;">
-                        <span>📍</span>
-                        <span><%= (todayRecord.time_in_location || (todayRecord.time_in_lat + ', ' + todayRecord.time_in_lng)).slice(0, 30) %></span>
-                    </a>
-                <% } %>
+                
                 <% if (todayRecord.time_in_photo) { %>
                     <img src="<%= todayRecord.time_in_photo %>" class="time-photo-thumb" onclick="openLightbox(this.src)" title="Time-In Verification Photo" alt="Time-In photo">
                 <% } %>
@@ -484,12 +479,7 @@
                 <div class="lbl">🔵 Time-Out</div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div class="val time-out-val"><%= formatTime(todayRecord.time_out) %></div>
-                    <% if (todayRecord.time_out_lat && todayRecord.time_out_lng) { %>
-                        <a href="https://www.google.com/maps?q=<%= todayRecord.time_out_lat %>,<%= todayRecord.time_out_lng %>" target="_blank" rel="noopener" title="<%= todayRecord.time_out_location || 'GPS Location' %> (Open Map)" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#2563eb;background:#eff6ff;padding:3px 9px;border-radius:12px;text-decoration:none;border:1px solid #bfdbfe;font-weight:600;">
-                            <span>📍</span>
-                            <span><%= (todayRecord.time_out_location || (todayRecord.time_out_lat + ', ' + todayRecord.time_out_lng)).slice(0, 30) %></span>
-                        </a>
-                    <% } %>
+                    
                     <% if (todayRecord.time_out_photo) { %>
                         <img src="<%= todayRecord.time_out_photo %>" class="time-photo-thumb" onclick="openLightbox(this.src)" title="Time-Out Verification Photo" alt="Time-Out photo">
                     <% } %>
@@ -531,13 +521,7 @@
                                 <td><%= formatDate(r.work_date) %></td>
                                 <td>
                                     <strong style="color: var(--color-success);"><%= formatTime(r.time_in) %></strong>
-                                    <% if (r.time_in_lat && r.time_in_lng) { %>
-                                        <div style="margin-top: 2px;">
-                                            <a href="https://www.google.com/maps?q=<%= r.time_in_lat %>,<%= r.time_in_lng %>" target="_blank" rel="noopener" style="font-size:0.72rem;color:#059669;text-decoration:none;" title="<%= r.time_in_location || '' %>">
-                                                📍 Map
-                                            </a>
-                                        </div>
-                                    <% } %>
+                                    
                                 </td>
                                 <td>
                                     <% if (r.time_in_photo) { %>
@@ -548,13 +532,7 @@
                                 </td>
                                 <td>
                                     <strong style="color: var(--color-primary);"><%= r.time_out ? formatTime(r.time_out) : '—' %></strong>
-                                    <% if (r.time_out_lat && r.time_out_lng) { %>
-                                        <div style="margin-top: 2px;">
-                                            <a href="https://www.google.com/maps?q=<%= r.time_out_lat %>,<%= r.time_out_lng %>" target="_blank" rel="noopener" style="font-size:0.72rem;color:#2563eb;text-decoration:none;" title="<%= r.time_out_location || '' %>">
-                                                📍 Map
-                                            </a>
-                                        </div>
-                                    <% } %>
+                                    
                                 </td>
                                 <td>
                                     <% if (r.time_out_photo) { %>
