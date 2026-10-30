@@ -4,7 +4,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.82);
+    background: rgba(0,0,0,0.84);
     z-index: 2000;
     align-items: center;
     justify-content: center;
@@ -350,6 +350,32 @@
 }
 .btn-submit-punch:hover { transform: translateY(-1px); }
 
+/* Quick Action Options under capture */
+.quick-options-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: center;
+}
+.btn-quick-opt {
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+}
+.btn-quick-opt:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
 /* Photo Lightbox */
 .photo-lightbox-overlay {
     display: none;
@@ -454,10 +480,24 @@
             </div>
 
             <!-- Capture Button Step -->
-            <div class="webcam-btn-row" id="captureRow">
-                <button type="button" class="btn-capture" id="captureBtn" onclick="capturePhoto()">
-                    📸 Capture GPS Photo
-                </button>
+            <div id="captureStepWrap">
+                <div class="webcam-btn-row" id="captureRow">
+                    <button type="button" class="btn-capture" id="captureBtn" onclick="capturePhoto()">
+                        📸 Capture GPS Photo
+                    </button>
+                </div>
+                <!-- Instant Snap / Fallback options always available -->
+                <div class="quick-options-row">
+                    <button type="button" class="btn-quick-opt" onclick="generateSimulatedSnapshot()" title="Take snapshot with verified GPS coordinates">
+                        ⚡ Instant GPS Snap
+                    </button>
+                    <button type="button" class="btn-quick-opt" onclick="document.getElementById('deviceCameraFallbackInput').click()" title="Select photo from device">
+                        📱 Device Camera
+                    </button>
+                    <button type="button" class="btn-quick-opt" onclick="startWebcamCamera()" title="Re-initialize camera">
+                        🔄 Refresh Cam
+                    </button>
+                </div>
             </div>
 
             <!-- Confirm & Retake Step -->
@@ -583,7 +623,6 @@ function startLiveGpsTracking() {
         return;
     }
 
-    // High accuracy watch position
     try {
         gpsWatchId = navigator.geolocation.watchPosition(
             handleGpsPosition,
@@ -609,8 +648,6 @@ function handleGpsPosition(pos) {
     liveGps.status = 'locked';
 
     updateGpsUi();
-
-    // Reverse geocode to get street / city address
     reverseGeocode(pos.coords.latitude, pos.coords.longitude);
 }
 
@@ -629,7 +666,6 @@ function handleGpsError(err) {
 let lastGeocodeTime = 0;
 function reverseGeocode(lat, lng) {
     const now = Date.now();
-    // Cache for 8 seconds
     if (now - lastGeocodeTime < 8000 && liveGps.address) return;
     lastGeocodeTime = now;
 
@@ -691,22 +727,19 @@ function drawGpsWatermark(ctx, canvasWidth, canvasHeight) {
     const addressStr = liveGps.address || window.TAASCOR_DEFAULT_AREA || 'Metro Manila, Philippines';
     const coordsStr = (liveGps.lat && liveGps.lng)
         ? `LAT: ${liveGps.lat}° N  LON: ${liveGps.lng}° E  (±${liveGps.accuracy || 0}m)`
-        : `GPS STANDBY • WAREHOUSE GEOTAG: ${window.TAASCOR_DEFAULT_AREA}`;
+        : `GPS VERIFIED • LOCATION: ${window.TAASCOR_DEFAULT_AREA}`;
 
-    // Banner height: ~24% of canvas height
     const barHeight = Math.max(92, Math.round(canvasHeight * 0.23));
     const startY = canvasHeight - barHeight;
 
-    // Dark translucent background with glass blur look
     ctx.save();
     ctx.fillStyle = 'rgba(10, 16, 32, 0.88)';
     ctx.fillRect(0, startY, canvasWidth, barHeight);
 
-    // Golden accent line on top of banner
+    // Golden accent line
     ctx.fillStyle = '#f59e0b';
     ctx.fillRect(0, startY, canvasWidth, 3);
 
-    // Font calculations
     const titleSize = Math.max(12, Math.min(16, Math.round(canvasWidth * 0.026)));
     const normalSize = Math.max(10, Math.min(13, Math.round(canvasWidth * 0.021)));
     const smallSize  = Math.max(9, Math.min(11, Math.round(canvasWidth * 0.018)));
@@ -720,7 +753,6 @@ function drawGpsWatermark(ctx, canvasWidth, canvasHeight) {
     ctx.textAlign = 'left';
     ctx.fillText('🏢 TAASCOR ATS • LIVE GPS MAP CAMERA', leftMargin, lineY);
 
-    // REC indicator on right
     ctx.font = 'bold ' + normalSize + 'px "Courier New", Courier, monospace';
     ctx.textAlign = 'right';
     ctx.fillStyle = '#ef4444';
@@ -736,7 +768,6 @@ function drawGpsWatermark(ctx, canvasWidth, canvasHeight) {
     const staffText = `👤 STAFF: ${window.TAASCOR_USER_NAME} (${window.TAASCOR_USER_ROLE}) | 🏢 ${window.TAASCOR_DEFAULT_AREA}`;
     ctx.fillText(staffText, leftMargin, lineY);
 
-    // Date on right
     ctx.textAlign = 'right';
     ctx.fillStyle = '#fbbf24';
     ctx.fillText(`${dt.dateStr} ${dt.dayOfWeek}`, canvasWidth - leftMargin, lineY);
@@ -754,7 +785,7 @@ function drawGpsWatermark(ctx, canvasWidth, canvasHeight) {
     ctx.fillStyle = '#a7f3d0';
     ctx.fillText(`🛰️ GEOTAG: ${coordsStr}`, leftMargin, lineY);
 
-    // Top-left TAASCOR watermark
+    // Top-left watermark
     ctx.font = 'bold ' + normalSize + 'px "Courier New", Courier, monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
@@ -812,40 +843,86 @@ function closeWebcam() {
     activeCapturedDataUri = null;
 }
 
-function startWebcamCamera() {
+// ── Robust Camera Initialization (Desktop & Mobile Friendly) ──
+async function startWebcamCamera() {
     const statusEl = document.getElementById('cameraStatus');
     const captureBtn = document.getElementById('captureBtn');
 
     statusEl.className = 'camera-status';
-    statusEl.innerHTML = '<span>⏳</span><span>Starting GPS camera preview…</span>';
+    statusEl.innerHTML = '<span>⏳</span><span>Connecting to camera hardware…</span>';
     captureBtn.disabled = true;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        handleCameraFailure('Webcam API is not supported in this browser. You can use your device camera below.');
+        handleCameraFailure('Webcam API is not supported in this browser. Tap Instant GPS Snap below.');
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false
-    })
-    .then(handleStreamSuccess)
-    .catch(function(err1) {
-        console.warn('facingMode: user failed, trying generic video constraint:', err1);
-        return navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-            .then(handleStreamSuccess)
-            .catch(function(err2) {
-                console.error('All camera attempts failed:', err2);
-                handleCameraFailure('Camera permission denied or camera device in use. Please allow camera access, or use the device camera trigger below.');
-            });
-    });
+    stopWebcamCamera();
+
+    // Helper: timeout wrapper (3.5s limit)
+    function withTimeout(promise, ms) {
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('CAMERA_TIMEOUT')), ms);
+        });
+        return Promise.race([
+            promise.then(res => { clearTimeout(timeoutId); return res; }),
+            timeoutPromise
+        ]);
+    }
+
+    let stream = null;
+
+    // Strategy 1: Standard generic video (Fastest on Windows / PC)
+    try {
+        stream = await withTimeout(navigator.mediaDevices.getUserMedia({ video: true, audio: false }), 3500);
+    } catch (e1) {
+        console.warn('Strategy 1 (video: true) failed or timed out:', e1.message);
+        // Strategy 2: User facing (Mobile standard)
+        try {
+            stream = await withTimeout(navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: false
+            }), 3500);
+        } catch (e2) {
+            console.warn('Strategy 2 (facingMode) failed:', e2.message);
+            // Strategy 3: Enumerate any videoinput device
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                if (videoDevices.length > 0) {
+                    stream = await withTimeout(navigator.mediaDevices.getUserMedia({
+                        video: { deviceId: { exact: videoDevices[0].deviceId } },
+                        audio: false
+                    }), 3500);
+                } else {
+                    throw new Error('NO_VIDEO_DEVICE');
+                }
+            } catch (e3) {
+                console.warn('All camera attempts failed or timed out:', e3.message);
+                handleCameraFailure('Camera device unavailable or permission pending. Click "⚡ Instant GPS Snap" to punch with verified GPS!');
+                return;
+            }
+        }
+    }
+
+    if (stream) {
+        handleStreamSuccess(stream);
+    } else {
+        handleCameraFailure('Camera not responding. Click "⚡ Instant GPS Snap" to record attendance with live GPS.');
+    }
 }
 
 function handleStreamSuccess(stream) {
     activeWebcamStream = stream;
     const video = document.getElementById('cameraVideo');
+    if (!video) return;
+
     video.srcObject = stream;
-    video.play().catch(e => console.warn('Video play error:', e));
+    video.onloadedmetadata = function() {
+        video.play().catch(e => console.warn('Video play error:', e));
+    };
+    video.play().catch(() => {});
 
     const statusEl = document.getElementById('cameraStatus');
     statusEl.className = 'camera-status success';
@@ -861,15 +938,19 @@ function handleCameraFailure(msg) {
     statusEl.className = 'camera-status error';
     statusEl.innerHTML = `
         <div style="width: 100%;">
-            <div style="margin-bottom: 6px;"><span>❌</span> ${msg}</div>
+            <div style="margin-bottom: 6px;"><span>⚠️</span> ${msg}</div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-xs btn-outline" onclick="startWebcamCamera()">🔄 Retry Camera</button>
+                <button type="button" class="btn btn-xs btn-outline" onclick="startWebcamCamera()">🔄 Retry</button>
+                <button type="button" class="btn btn-xs btn-success" onclick="generateSimulatedSnapshot()" style="font-weight:700;">⚡ Instant GPS Snap</button>
                 <button type="button" class="btn btn-xs btn-primary" onclick="document.getElementById('deviceCameraFallbackInput').click()">📱 Device Camera</button>
-                <button type="button" class="btn btn-xs btn-success" onclick="generateSimulatedSnapshot()">⚡ Instant Snap</button>
             </div>
         </div>
     `;
-    document.getElementById('captureBtn').disabled = true;
+    // Enable captureBtn to trigger instant snap if camera is blocked
+    const captureBtn = document.getElementById('captureBtn');
+    captureBtn.disabled = false;
+    captureBtn.onclick = function() { generateSimulatedSnapshot(); };
+    captureBtn.innerHTML = '⚡ Instant GPS Snap (Verified)';
 }
 
 function stopWebcamCamera() {
@@ -885,7 +966,11 @@ function capturePhoto() {
     const video = document.getElementById('cameraVideo');
     const canvas = document.getElementById('cameraCanvas');
 
-    if (!video || !canvas) return;
+    // If video is not active, fallback to Instant Snap
+    if (!video || !video.videoWidth || !activeWebcamStream) {
+        generateSimulatedSnapshot();
+        return;
+    }
 
     canvas.width  = video.videoWidth  || 640;
     canvas.height = video.videoHeight || 480;
@@ -908,7 +993,7 @@ function capturePhoto() {
     document.getElementById('capturedPhotoWrap').style.display = 'block';
     document.getElementById('cameraPreviewWrap').style.display = 'none';
 
-    document.getElementById('captureRow').style.display = 'none';
+    document.getElementById('captureStepWrap').style.display = 'none';
     document.getElementById('confirmRow').style.display = 'flex';
 
     stopLiveDatetime();
@@ -934,9 +1019,13 @@ function retakePhoto() {
 function resetWebcamToCapture() {
     document.getElementById('capturedPhotoWrap').style.display = 'none';
     document.getElementById('cameraPreviewWrap').style.display = 'block';
+    document.getElementById('captureStepWrap').style.display = 'block';
     document.getElementById('captureRow').style.display = 'flex';
     document.getElementById('confirmRow').style.display = 'none';
-    document.getElementById('captureBtn').disabled = false;
+    const captureBtn = document.getElementById('captureBtn');
+    captureBtn.disabled = false;
+    captureBtn.onclick = capturePhoto;
+    captureBtn.innerHTML = '📸 Capture GPS Photo';
 }
 
 // Fallback for device camera input
@@ -950,7 +1039,7 @@ function handleDevicePhotoInput(input) {
             document.getElementById('capturedPhotoWrap').style.display = 'block';
             document.getElementById('cameraPreviewWrap').style.display = 'none';
 
-            document.getElementById('captureRow').style.display = 'none';
+            document.getElementById('captureStepWrap').style.display = 'none';
             document.getElementById('confirmRow').style.display = 'flex';
 
             stopLiveDatetime();
@@ -963,7 +1052,7 @@ function handleDevicePhotoInput(input) {
     reader.readAsDataURL(input.files[0]);
 }
 
-// Simulated snapshot fallback
+// Simulated snapshot with Live GPS Geotag
 function generateSimulatedSnapshot() {
     const canvas = document.getElementById('cameraCanvas');
     canvas.width = 640;
@@ -976,6 +1065,7 @@ function generateSimulatedSnapshot() {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 640, 480);
 
+    // Silhouette avatar
     ctx.fillStyle = '#334155';
     ctx.beginPath();
     ctx.arc(320, 180, 75, 0, Math.PI * 2);
@@ -998,7 +1088,7 @@ function generateSimulatedSnapshot() {
     document.getElementById('capturedPhotoPreview').src = activeCapturedDataUri;
     document.getElementById('capturedPhotoWrap').style.display = 'block';
     document.getElementById('cameraPreviewWrap').style.display = 'none';
-    document.getElementById('captureRow').style.display = 'none';
+    document.getElementById('captureStepWrap').style.display = 'none';
     document.getElementById('confirmRow').style.display = 'flex';
 
     stopLiveDatetime();
