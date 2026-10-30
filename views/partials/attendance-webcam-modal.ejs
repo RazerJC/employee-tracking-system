@@ -1,14 +1,14 @@
-<!-- ── ATTENDANCE WEBCAM MODAL COMPONENT ──────────────────── -->
+<!-- ── ATTENDANCE WEBCAM & LIVE GPS MAP CAMERA COMPONENT ──────────────────── -->
 <style>
 .webcam-modal-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.78);
+    background: rgba(0,0,0,0.82);
     z-index: 2000;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(6px);
 }
 .webcam-modal-overlay.active {
     display: flex;
@@ -16,9 +16,9 @@
 .webcam-modal {
     background: #ffffff;
     border-radius: 20px;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+    width: 92%;
+    max-width: 520px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.45);
     overflow: hidden;
     animation: webcamModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -28,7 +28,7 @@
 }
 .webcam-modal-header {
     background: linear-gradient(135deg, #1b2a4a 0%, #2d4a8a 100%);
-    padding: 16px 22px;
+    padding: 14px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -41,6 +41,16 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+.webcam-modal-header h4 .gps-chip-header {
+    font-size: 0.72rem;
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 .webcam-close-btn {
     background: rgba(255,255,255,0.18);
@@ -57,7 +67,7 @@
     transition: background 0.15s;
 }
 .webcam-close-btn:hover { background: rgba(255,255,255,0.35); }
-.webcam-modal-body { padding: 20px 22px 22px; }
+.webcam-modal-body { padding: 18px 20px 20px; }
 
 /* Camera preview viewport */
 .camera-preview-wrap {
@@ -67,7 +77,7 @@
     background: #0f172a;
     border-radius: 14px;
     overflow: hidden;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
 }
 #cameraVideo {
@@ -88,24 +98,82 @@
     pointer-events: none;
 }
 .camera-face-guide {
-    width: 52%;
+    width: 48%;
     aspect-ratio: 3/4;
-    border: 3px dashed rgba(255,255,255,0.65);
+    border: 2px dashed rgba(255,255,255,0.65);
     border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25);
 }
 .camera-guide-hint {
-    margin-top: 10px;
+    margin-top: 8px;
     color: #ffffff;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,0.6);
     padding: 3px 10px;
     border-radius: 12px;
     letter-spacing: 0.3px;
 }
 
-/* ── LIVE DATE/TIME OVERLAY (CCTV-style) ── */
+/* ── GPS CAM HUD OVERLAYS ── */
+.camera-taascor-label {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    color: rgba(255,255,255,0.95);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    pointer-events: none;
+    z-index: 10;
+}
+.camera-gps-pill {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255,255,255,0.2);
+    backdrop-filter: blur(4px);
+    padding: 3px 9px;
+    border-radius: 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+    z-index: 10;
+    pointer-events: none;
+}
+.camera-gps-pill.locked {
+    border-color: rgba(16, 185, 129, 0.6);
+    color: #a7f3d0;
+}
+.camera-gps-pill.searching {
+    border-color: rgba(245, 158, 11, 0.6);
+    color: #fde68a;
+}
+.camera-gps-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b;
+    animation: gpsPulse 1.2s infinite;
+}
+.camera-gps-pill.locked .camera-gps-dot {
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+@keyframes gpsPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+/* ── LIVE GPS DATA CARD AT BOTTOM OF CAMERA ── */
 .camera-datetime-overlay {
     position: absolute;
     bottom: 0;
@@ -113,66 +181,55 @@
     right: 0;
     pointer-events: none;
     z-index: 10;
-    padding: 0 0 8px 0;
 }
-.camera-datetime-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 7px 14px;
-    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
+.camera-gps-card {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.6) 0%, rgba(15, 23, 42, 0.92) 100%);
+    border-top: 1px solid rgba(251, 191, 36, 0.4);
+    padding: 8px 12px;
+    color: #ffffff;
+    font-family: 'Courier New', Courier, monospace;
 }
-.camera-datetime-left {
+.camera-gps-loc-row {
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 0.74rem;
+    color: #38bdf8;
+    font-weight: 700;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.camera-gps-coords-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.camera-gps-coords {
+    color: #fbbf24;
+    font-weight: 700;
+}
+.camera-datetime-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
 }
 .camera-rec-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #ef4444;
-    box-shadow: 0 0 6px #ef4444, 0 0 12px rgba(239,68,68,0.5);
-    animation: recBlink 1s ease-in-out infinite;
+    box-shadow: 0 0 6px #ef4444;
+    animation: recBlink 1s infinite;
 }
 @keyframes recBlink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-}
-.camera-rec-label {
-    color: #ef4444;
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-    font-family: 'Courier New', Courier, monospace;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-}
-.camera-datetime-text {
-    color: #ffffff;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.82rem;
-    font-weight: 700;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.5);
-    letter-spacing: 0.5px;
-}
-.camera-datetime-text .dt-date {
-    color: #fbbf24;
-}
-.camera-datetime-text .dt-time {
-    color: #ffffff;
-}
-.camera-taascor-label {
-    position: absolute;
-    top: 10px;
-    left: 14px;
-    color: rgba(255,255,255,0.85);
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 1.2px;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-    pointer-events: none;
-    z-index: 10;
+    50% { opacity: 0.25; }
 }
 
 /* Captured photo preview */
@@ -183,8 +240,8 @@
     aspect-ratio: 4/3;
     border-radius: 14px;
     overflow: hidden;
-    margin-bottom: 14px;
-    background: #0f172a;
+    margin-bottom: 12px;
+    background: #000;
 }
 #capturedPhotoPreview {
     width: 100%;
@@ -194,104 +251,112 @@
 }
 .photo-confirmed-badge {
     position: absolute;
-    top: 12px;
+    top: 10px;
     right: 12px;
     background: rgba(5, 150, 105, 0.92);
-    color: #ffffff;
-    font-size: 0.8rem;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
     font-weight: 700;
-    padding: 6px 16px;
-    border-radius: 20px;
-    backdrop-filter: blur(4px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 /* Status message */
 .camera-status {
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     font-size: 0.82rem;
+    color: #475569;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 14px;
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
 }
-.camera-status.success { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
-.camera-status.error   { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.camera-status.error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+.camera-status.success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+}
 
-/* Action buttons */
+/* Buttons */
 .webcam-btn-row {
     display: flex;
     gap: 10px;
 }
 .btn-capture {
-    flex: 1;
-    background: linear-gradient(135deg, #059669, #10b981);
-    color: #ffffff;
+    width: 100%;
+    padding: 13px;
     border: none;
     border-radius: 12px;
-    padding: 14px;
+    background: linear-gradient(135deg, #1b2a4a 0%, #2d4a8a 100%);
+    color: #ffffff;
     font-size: 0.95rem;
     font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(5,150,105,0.35);
-    transition: transform 0.15s, box-shadow 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    transition: all 0.15s;
+    box-shadow: 0 4px 12px rgba(27, 42, 74, 0.25);
 }
-.btn-capture:hover {
+.btn-capture:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2d4a8a 0%, #1b2a4a 100%);
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(5,150,105,0.45);
 }
 .btn-capture:disabled {
-    opacity: 0.5;
+    opacity: 0.55;
     cursor: not-allowed;
-    transform: none;
 }
 .btn-retake {
     flex: 1;
-    background: #f1f5f9;
-    color: #334155;
+    padding: 12px;
     border: 1px solid #cbd5e1;
     border-radius: 12px;
-    padding: 14px;
-    font-size: 0.95rem;
+    background: #ffffff;
+    color: #475569;
     font-weight: 700;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: background 0.15s;
 }
-.btn-retake:hover { background: #e2e8f0; }
+.btn-retake:hover { background: #f1f5f9; }
 .btn-submit-punch {
     flex: 2;
+    padding: 12px;
     border: none;
     border-radius: 12px;
-    padding: 14px;
-    font-size: 0.95rem;
     font-weight: 700;
+    font-size: 0.92rem;
+    color: #ffffff;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    transition: transform 0.15s;
 }
-.btn-submit-punch.in  { background: linear-gradient(135deg, #059669, #10b981); color: #fff; box-shadow: 0 4px 14px rgba(5,150,105,0.35); }
-.btn-submit-punch.out { background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,0.35); }
+.btn-submit-punch.in {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+.btn-submit-punch.out {
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+}
 .btn-submit-punch:hover { transform: translateY(-1px); }
-.btn-submit-punch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-/* Lightbox overlay */
+/* Photo Lightbox */
 .photo-lightbox-overlay {
     display: none;
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.88);
-    z-index: 3000;
+    z-index: 2000;
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(6px);
@@ -299,7 +364,7 @@
 .photo-lightbox-overlay.active { display: flex; }
 .photo-lightbox-img {
     max-width: 90vw;
-    max-height: 85vh;
+    max-height: 82vh;
     border-radius: 14px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     object-fit: contain;
@@ -327,7 +392,10 @@
 <div class="webcam-modal-overlay" id="webcamModalOverlay">
     <div class="webcam-modal">
         <div class="webcam-modal-header">
-            <h4 id="webcamModalTitle">📸 Camera Time-In</h4>
+            <h4 id="webcamModalTitle">
+                <span>📸 Camera Time-In</span>
+                <span class="gps-chip-header">🛰️ GPS CAM</span>
+            </h4>
             <button type="button" class="webcam-close-btn" onclick="closeWebcam()">✕</button>
         </div>
         <div class="webcam-modal-body">
@@ -338,7 +406,13 @@
                 <canvas id="cameraCanvas"></canvas>
 
                 <!-- TAASCOR label top-left -->
-                <div class="camera-taascor-label">TAASCOR ATS</div>
+                <div class="camera-taascor-label">TAASCOR ATS • GPS CAM</div>
+
+                <!-- Live GPS Status Pill top-right -->
+                <div class="camera-gps-pill searching" id="cameraGpsPill">
+                    <span class="camera-gps-dot"></span>
+                    <span id="cameraGpsPillText">ACQUIRING GPS…</span>
+                </div>
 
                 <!-- Face alignment guide -->
                 <div class="camera-preview-overlay">
@@ -346,15 +420,22 @@
                     <div class="camera-guide-hint">Align face inside guide</div>
                 </div>
 
-                <!-- LIVE Date/Time overlay bottom (CCTV-style) -->
+                <!-- LIVE GPS HUD & Timestamp overlay bottom -->
                 <div class="camera-datetime-overlay">
-                    <div class="camera-datetime-bar">
-                        <div class="camera-datetime-left">
-                            <div class="camera-rec-dot"></div>
-                            <span class="camera-rec-label">REC</span>
+                    <div class="camera-gps-card">
+                        <div class="camera-gps-loc-row">
+                            <span>📍</span>
+                            <span id="liveGpsAddress">Acquiring GPS location…</span>
                         </div>
-                        <div class="camera-datetime-text" id="liveDatetimeText">
-                            <span class="dt-date">--/--/----</span>&nbsp;&nbsp;<span class="dt-time">--:--:--</span>
+                        <div class="camera-gps-coords-row">
+                            <div class="camera-gps-coords" id="liveGpsCoords">
+                                LAT: <span id="valLat">--.------</span>° | LON: <span id="valLng">--.------</span>°
+                            </div>
+                            <div class="camera-datetime-right">
+                                <span class="camera-rec-dot"></span>
+                                <span style="color:#ef4444;font-weight:800;font-size:0.68rem;">REC</span>
+                                <span id="liveTimeClock" style="font-weight:700;">--:--:--</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -363,19 +444,19 @@
             <!-- Captured Photo Preview -->
             <div id="capturedPhotoWrap">
                 <img id="capturedPhotoPreview" src="" alt="Captured photo">
-                <div class="photo-confirmed-badge">✓ Photo Captured</div>
+                <div class="photo-confirmed-badge">✓ GPS Photo Tagged</div>
             </div>
 
             <!-- Live Status Message -->
             <div class="camera-status" id="cameraStatus">
                 <span>⏳</span>
-                <span>Initializing camera…</span>
+                <span>Initializing camera & GPS…</span>
             </div>
 
             <!-- Capture Button Step -->
             <div class="webcam-btn-row" id="captureRow">
                 <button type="button" class="btn-capture" id="captureBtn" onclick="capturePhoto()">
-                    📸 Capture Photo
+                    📸 Capture GPS Photo
                 </button>
             </div>
 
@@ -392,16 +473,24 @@
             <!-- Hidden Mobile/Device Camera Trigger for fallback -->
             <input type="file" id="deviceCameraFallbackInput" accept="image/*" capture="user" style="display: none;" onchange="handleDevicePhotoInput(this)">
 
-            <!-- Hidden Submit Forms -->
+            <!-- Hidden Submit Forms with GPS coordinates & address -->
             <form id="sharedTimeInForm" action="/coordinator-attendance/time-in" method="POST" style="display:none;">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <input type="hidden" name="return_to" id="timeInReturnTo" value="">
                 <input type="hidden" name="time_in_photo" id="timeInPhotoHidden">
+                <input type="hidden" name="lat" id="timeInLat">
+                <input type="hidden" name="lng" id="timeInLng">
+                <input type="hidden" name="accuracy" id="timeInAccuracy">
+                <input type="hidden" name="location_address" id="timeInLocation">
             </form>
             <form id="sharedTimeOutForm" action="/coordinator-attendance/time-out" method="POST" style="display:none;">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <input type="hidden" name="return_to" id="timeOutReturnTo" value="">
                 <input type="hidden" name="time_out_photo" id="timeOutPhotoHidden">
+                <input type="hidden" name="lat" id="timeOutLat">
+                <input type="hidden" name="lng" id="timeOutLng">
+                <input type="hidden" name="accuracy" id="timeOutAccuracy">
+                <input type="hidden" name="location_address" id="timeOutLocation">
             </form>
         </div>
     </div>
@@ -415,16 +504,30 @@
 
 <!-- COMPONENT SCRIPTS -->
 <script>
+// Staff & Warehouse context from server session
+window.TAASCOR_USER_NAME = "<%= (typeof user !== 'undefined' && user && user.full_name) ? user.full_name.replace(/["\\]/g, '') : 'Staff' %>";
+window.TAASCOR_USER_ROLE = "<%= (typeof user !== 'undefined' && user && user.role) ? user.role : 'COORDINATOR' %>";
+window.TAASCOR_DEFAULT_AREA = "<%= (typeof userArea !== 'undefined' && userArea && userArea.name) ? userArea.name.replace(/["\\]/g, '') : 'Pasig Main Facility' %>";
+
 let activeWebcamStream = null;
 let currentWebcamMode = 'time-in';
 let activeCapturedDataUri = null;
 let currentReturnUrl = window.location.pathname;
 let liveDatetimeTimer = null;
+let gpsWatchId = null;
+
+// Live GPS state
+let liveGps = {
+    lat: null,
+    lng: null,
+    accuracy: null,
+    address: null,
+    status: 'searching' // 'searching', 'locked', 'denied', 'unavailable'
+};
 
 // ── Helpers: Get Manila date/time strings ──
 function getManilaDatetime() {
     const now = new Date();
-    // Format in Asia/Manila timezone
     const options = { timeZone: 'Asia/Manila' };
 
     const year   = now.toLocaleString('en-US', { ...options, year: 'numeric' });
@@ -438,20 +541,19 @@ function getManilaDatetime() {
     const mm = minute.padStart(2, '0');
     const ss = second.padStart(2, '0');
 
-    // Date: MM/DD/YYYY  |  Time: HH:MM:SS (24h military)
     const dateStr = `${month}/${day}/${year}`;
     const timeStr = `${hh}:${mm}:${ss}`;
-
-    // Day of week
     const dayOfWeek = now.toLocaleString('en-US', { ...options, weekday: 'short' }).toUpperCase();
 
     return { dateStr, timeStr, dayOfWeek, full: `${dateStr} ${dayOfWeek} ${timeStr}` };
 }
 
-// ── Live clock update (ticks every second on the overlay) ──
+// ── Live clock update ──
 function startLiveDatetime() {
     updateLiveDatetime();
-    liveDatetimeTimer = setInterval(updateLiveDatetime, 1000);
+    if (!liveDatetimeTimer) {
+        liveDatetimeTimer = setInterval(updateLiveDatetime, 1000);
+    }
 }
 
 function stopLiveDatetime() {
@@ -462,67 +564,206 @@ function stopLiveDatetime() {
 }
 
 function updateLiveDatetime() {
-    const el = document.getElementById('liveDatetimeText');
-    if (!el) return;
     const dt = getManilaDatetime();
-    el.innerHTML = '<span class="dt-date">' + dt.dateStr + ' ' + dt.dayOfWeek + '</span>&nbsp;&nbsp;<span class="dt-time">' + dt.timeStr + '</span>';
+    const clockEl = document.getElementById('liveTimeClock');
+    if (clockEl) {
+        clockEl.textContent = dt.timeStr;
+    }
 }
 
-// ── Draw date/time stamp onto canvas (burned into the photo) ──
-function drawDateTimeStamp(ctx, canvasWidth, canvasHeight) {
+// ── Geolocation & Live Reverse Geocoding ──
+function startLiveGpsTracking() {
+    liveGps.status = 'searching';
+    updateGpsUi();
+
+    if (!navigator.geolocation) {
+        liveGps.status = 'unavailable';
+        liveGps.address = window.TAASCOR_DEFAULT_AREA || 'Metro Manila, Philippines';
+        updateGpsUi();
+        return;
+    }
+
+    // High accuracy watch position
+    try {
+        gpsWatchId = navigator.geolocation.watchPosition(
+            handleGpsPosition,
+            handleGpsError,
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        );
+    } catch (e) {
+        console.warn('Geolocation watch error:', e);
+    }
+}
+
+function stopLiveGpsTracking() {
+    if (gpsWatchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+    }
+}
+
+function handleGpsPosition(pos) {
+    liveGps.lat = pos.coords.latitude.toFixed(6);
+    liveGps.lng = pos.coords.longitude.toFixed(6);
+    liveGps.accuracy = Math.round(pos.coords.accuracy);
+    liveGps.status = 'locked';
+
+    updateGpsUi();
+
+    // Reverse geocode to get street / city address
+    reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+}
+
+function handleGpsError(err) {
+    console.warn('GPS error:', err.code, err.message);
+    if (err.code === 1) {
+        liveGps.status = 'denied';
+        liveGps.address = 'GPS Permission Blocked • ' + window.TAASCOR_DEFAULT_AREA;
+    } else {
+        liveGps.status = 'unavailable';
+        liveGps.address = window.TAASCOR_DEFAULT_AREA || 'Metro Manila, Philippines';
+    }
+    updateGpsUi();
+}
+
+let lastGeocodeTime = 0;
+function reverseGeocode(lat, lng) {
+    const now = Date.now();
+    // Cache for 8 seconds
+    if (now - lastGeocodeTime < 8000 && liveGps.address) return;
+    lastGeocodeTime = now;
+
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.address) {
+                const a = data.address;
+                const road = a.road || a.pedestrian || a.suburb || a.neighbourhood || '';
+                const city = a.city || a.town || a.municipality || a.city_district || '';
+                const state = a.state || a.province || a.region || '';
+                const parts = [road, city, state].filter(Boolean);
+                liveGps.address = parts.join(', ') || data.display_name.split(',').slice(0, 3).join(', ');
+            } else if (data && data.display_name) {
+                liveGps.address = data.display_name.split(',').slice(0, 3).join(', ');
+            }
+            updateGpsUi();
+        })
+        .catch(() => {
+            if (!liveGps.address) {
+                liveGps.address = window.TAASCOR_DEFAULT_AREA || 'Pasig City, Metro Manila';
+                updateGpsUi();
+            }
+        });
+}
+
+function updateGpsUi() {
+    const pill = document.getElementById('cameraGpsPill');
+    const pillText = document.getElementById('cameraGpsPillText');
+    const locEl = document.getElementById('liveGpsAddress');
+    const latEl = document.getElementById('valLat');
+    const lngEl = document.getElementById('valLng');
+
+    if (!pill) return;
+
+    if (liveGps.status === 'locked') {
+        pill.className = 'camera-gps-pill locked';
+        pillText.textContent = `GPS LOCKED (±${liveGps.accuracy}m)`;
+        if (latEl) latEl.textContent = liveGps.lat;
+        if (lngEl) lngEl.textContent = liveGps.lng;
+        if (locEl) locEl.textContent = liveGps.address || `${liveGps.lat}, ${liveGps.lng}`;
+    } else if (liveGps.status === 'searching') {
+        pill.className = 'camera-gps-pill searching';
+        pillText.textContent = 'ACQUIRING GPS…';
+        if (latEl) latEl.textContent = '--.------';
+        if (lngEl) lngEl.textContent = '--.------';
+        if (locEl) locEl.textContent = liveGps.address || 'Acquiring GPS location…';
+    } else {
+        pill.className = 'camera-gps-pill';
+        pillText.textContent = liveGps.status === 'denied' ? 'GPS BLOCKED' : 'GPS STANDBY';
+        if (locEl) locEl.textContent = liveGps.address || window.TAASCOR_DEFAULT_AREA;
+    }
+}
+
+// ── BURN LIVE GPS CAM WATERMARK ONTO CANVAS ──
+function drawGpsWatermark(ctx, canvasWidth, canvasHeight) {
     const dt = getManilaDatetime();
+    const addressStr = liveGps.address || window.TAASCOR_DEFAULT_AREA || 'Metro Manila, Philippines';
+    const coordsStr = (liveGps.lat && liveGps.lng)
+        ? `LAT: ${liveGps.lat}° N  LON: ${liveGps.lng}° E  (±${liveGps.accuracy || 0}m)`
+        : `GPS STANDBY • WAREHOUSE GEOTAG: ${window.TAASCOR_DEFAULT_AREA}`;
 
-    // Bottom bar background
-    const barHeight = Math.max(38, canvasHeight * 0.085);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-    ctx.fillRect(0, canvasHeight - barHeight, canvasWidth, barHeight);
+    // Banner height: ~24% of canvas height
+    const barHeight = Math.max(92, Math.round(canvasHeight * 0.23));
+    const startY = canvasHeight - barHeight;
 
-    // Subtle top border line
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(0, canvasHeight - barHeight, canvasWidth, 1);
+    // Dark translucent background with glass blur look
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 16, 32, 0.88)';
+    ctx.fillRect(0, startY, canvasWidth, barHeight);
 
-    // Font sizing based on canvas resolution
-    const fontSize = Math.max(13, Math.min(18, canvasWidth * 0.028));
-    const smallFont = Math.max(10, Math.min(14, canvasWidth * 0.02));
+    // Golden accent line on top of banner
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(0, startY, canvasWidth, 3);
 
-    // Left side: "TAASCOR ATS" label
-    ctx.font = 'bold ' + smallFont + 'px "Courier New", Courier, monospace';
+    // Font calculations
+    const titleSize = Math.max(12, Math.min(16, Math.round(canvasWidth * 0.026)));
+    const normalSize = Math.max(10, Math.min(13, Math.round(canvasWidth * 0.021)));
+    const smallSize  = Math.max(9, Math.min(11, Math.round(canvasWidth * 0.018)));
+
+    const leftMargin = 16;
+    let lineY = startY + 18;
+
+    // Row 1: Header Brand + REC
+    ctx.font = 'bold ' + titleSize + 'px "Courier New", Courier, monospace';
     ctx.fillStyle = '#fbbf24';
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('TAASCOR ATS', 14, canvasHeight - barHeight / 2 - (fontSize * 0.45));
+    ctx.fillText('🏢 TAASCOR ATS • LIVE GPS MAP CAMERA', leftMargin, lineY);
 
-    // Left side bottom: REC indicator
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.arc(20, canvasHeight - barHeight / 2 + (fontSize * 0.55), 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.font = 'bold ' + (smallFont - 1) + 'px "Courier New", Courier, monospace';
-    ctx.fillStyle = '#ef4444';
-    ctx.fillText('REC', 28, canvasHeight - barHeight / 2 + (fontSize * 0.55));
-
-    // Right side: Date & Time
-    ctx.font = 'bold ' + fontSize + 'px "Courier New", Courier, monospace';
+    // REC indicator on right
+    ctx.font = 'bold ' + normalSize + 'px "Courier New", Courier, monospace';
     ctx.textAlign = 'right';
-
-    // Date
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText(dt.dateStr + ' ' + dt.dayOfWeek, canvasWidth - 14, canvasHeight - barHeight / 2 - (fontSize * 0.35));
-
-    // Time (military)
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('● REC', canvasWidth - leftMargin - 95, lineY);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold ' + (fontSize + 2) + 'px "Courier New", Courier, monospace';
-    ctx.fillText(dt.timeStr, canvasWidth - 14, canvasHeight - barHeight / 2 + (fontSize * 0.65));
+    ctx.fillText(dt.timeStr, canvasWidth - leftMargin, lineY);
+
+    // Row 2: Staff & Warehouse
+    lineY += normalSize + 6;
+    ctx.font = 'bold ' + normalSize + 'px "Courier New", Courier, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    const staffText = `👤 STAFF: ${window.TAASCOR_USER_NAME} (${window.TAASCOR_USER_ROLE}) | 🏢 ${window.TAASCOR_DEFAULT_AREA}`;
+    ctx.fillText(staffText, leftMargin, lineY);
+
+    // Date on right
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText(`${dt.dateStr} ${dt.dayOfWeek}`, canvasWidth - leftMargin, lineY);
+
+    // Row 3: Address Location
+    lineY += normalSize + 5;
+    ctx.font = 'bold ' + normalSize + 'px "Courier New", Courier, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`📍 LOCATION: ${addressStr}`, leftMargin, lineY);
+
+    // Row 4: Geotag Coordinates
+    lineY += normalSize + 5;
+    ctx.font = 'bold ' + smallSize + 'px "Courier New", Courier, monospace';
+    ctx.fillStyle = '#a7f3d0';
+    ctx.fillText(`🛰️ GEOTAG: ${coordsStr}`, leftMargin, lineY);
 
     // Top-left TAASCOR watermark
-    const topFontSize = Math.max(11, Math.min(14, canvasWidth * 0.022));
-    ctx.font = 'bold ' + topFontSize + 'px "Courier New", Courier, monospace';
+    ctx.font = 'bold ' + normalSize + 'px "Courier New", Courier, monospace';
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.fillText('TAASCOR ATS', 12, 22);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillText('TAASCOR ATS VERIFIED', leftMargin, 24);
+
+    ctx.restore();
 }
 
-// ── Draw date/time stamp on a device camera fallback image ──
+// ── Draw stamp on device photo fallback ──
 function stampDevicePhoto(imgDataUri, callback) {
     const img = new Image();
     img.onload = function() {
@@ -531,12 +772,13 @@ function stampDevicePhoto(imgDataUri, callback) {
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
-        drawDateTimeStamp(ctx, canvas.width, canvas.height);
+        drawGpsWatermark(ctx, canvas.width, canvas.height);
         callback(canvas.toDataURL('image/jpeg', 0.85));
     };
     img.src = imgDataUri;
 }
 
+// ── Open Webcam Modal ──
 function openWebcam(mode, returnUrl) {
     currentWebcamMode = mode || 'time-in';
     currentReturnUrl = returnUrl || window.location.pathname;
@@ -546,11 +788,11 @@ function openWebcam(mode, returnUrl) {
     const submitBtn = document.getElementById('submitPunchBtn');
 
     if (mode === 'time-in') {
-        titleEl.textContent = '📸 Camera Time-In';
+        titleEl.innerHTML = '<span>📸 Camera Time-In</span> <span class="gps-chip-header">🛰️ GPS CAM</span>';
         submitBtn.className = 'btn-submit-punch in';
         submitBtn.textContent = '✅ Confirm & Record Time-In';
     } else {
-        titleEl.textContent = '📸 Camera Time-Out';
+        titleEl.innerHTML = '<span>📸 Camera Time-Out</span> <span class="gps-chip-header">🛰️ GPS CAM</span>';
         submitBtn.className = 'btn-submit-punch out';
         submitBtn.textContent = '✅ Confirm & Record Time-Out';
     }
@@ -559,11 +801,13 @@ function openWebcam(mode, returnUrl) {
     resetWebcamToCapture();
     startWebcamCamera();
     startLiveDatetime();
+    startLiveGpsTracking();
 }
 
 function closeWebcam() {
     stopWebcamCamera();
     stopLiveDatetime();
+    stopLiveGpsTracking();
     document.getElementById('webcamModalOverlay').classList.remove('active');
     activeCapturedDataUri = null;
 }
@@ -573,16 +817,14 @@ function startWebcamCamera() {
     const captureBtn = document.getElementById('captureBtn');
 
     statusEl.className = 'camera-status';
-    statusEl.innerHTML = '<span>⏳</span><span>Starting camera preview…</span>';
+    statusEl.innerHTML = '<span>⏳</span><span>Starting GPS camera preview…</span>';
     captureBtn.disabled = true;
 
-    // Check mediaDevices support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         handleCameraFailure('Webcam API is not supported in this browser. You can use your device camera below.');
         return;
     }
 
-    // Try user facing camera first
     navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
@@ -590,7 +832,6 @@ function startWebcamCamera() {
     .then(handleStreamSuccess)
     .catch(function(err1) {
         console.warn('facingMode: user failed, trying generic video constraint:', err1);
-        // Fallback constraint (standard for external USB webcams on desktop)
         return navigator.mediaDevices.getUserMedia({ video: true, audio: false })
             .then(handleStreamSuccess)
             .catch(function(err2) {
@@ -608,7 +849,7 @@ function handleStreamSuccess(stream) {
 
     const statusEl = document.getElementById('cameraStatus');
     statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>🎥</span><span>Live Camera Active — Align face inside guide and tap Capture</span>';
+    statusEl.innerHTML = '<span>🎥</span><span>Live GPS Camera Active — Align face inside guide and tap Capture</span>';
 
     const captureBtn = document.getElementById('captureBtn');
     captureBtn.disabled = false;
@@ -657,8 +898,8 @@ function capturePhoto() {
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    // ── BURN DATE/TIME STAMP INTO THE PHOTO ──
-    drawDateTimeStamp(ctx, canvas.width, canvas.height);
+    // ── BURN LIVE GPS CAM WATERMARK DIRECTLY INTO THE PHOTO ──
+    drawGpsWatermark(ctx, canvas.width, canvas.height);
 
     activeCapturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
 
@@ -670,12 +911,11 @@ function capturePhoto() {
     document.getElementById('captureRow').style.display = 'none';
     document.getElementById('confirmRow').style.display = 'flex';
 
-    // Stop the live clock since we captured
     stopLiveDatetime();
 
     const statusEl = document.getElementById('cameraStatus');
     statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>✅</span><span>Photo captured with date & time stamp! Confirm below to record your punch.</span>';
+    statusEl.innerHTML = '<span>✅</span><span>GPS photo captured with verified location! Confirm below to record your punch.</span>';
 }
 
 function retakePhoto() {
@@ -687,7 +927,7 @@ function retakePhoto() {
     } else {
         const statusEl = document.getElementById('cameraStatus');
         statusEl.className = 'camera-status success';
-        statusEl.innerHTML = '<span>🎥</span><span>Live Camera Active — Align face inside guide and tap Capture</span>';
+        statusEl.innerHTML = '<span>🎥</span><span>Live GPS Camera Active — Align face inside guide and tap Capture</span>';
     }
 }
 
@@ -699,12 +939,11 @@ function resetWebcamToCapture() {
     document.getElementById('captureBtn').disabled = false;
 }
 
-// Fallback for device camera input (e.g. mobile native camera)
+// Fallback for device camera input
 function handleDevicePhotoInput(input) {
     if (!input.files || !input.files[0]) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        // Stamp the device photo with date/time before using it
         stampDevicePhoto(e.target.result, function(stampedUri) {
             activeCapturedDataUri = stampedUri;
             document.getElementById('capturedPhotoPreview').src = activeCapturedDataUri;
@@ -718,46 +957,41 @@ function handleDevicePhotoInput(input) {
 
             const statusEl = document.getElementById('cameraStatus');
             statusEl.className = 'camera-status success';
-            statusEl.innerHTML = '<span>✅</span><span>Photo loaded with date & time stamp! Confirm to save punch.</span>';
+            statusEl.innerHTML = '<span>✅</span><span>Device photo loaded with GPS watermark! Confirm to save punch.</span>';
         });
     };
     reader.readAsDataURL(input.files[0]);
 }
 
-// Simulated snapshot fallback for test environments without hardware webcam
+// Simulated snapshot fallback
 function generateSimulatedSnapshot() {
     const canvas = document.getElementById('cameraCanvas');
     canvas.width = 640;
     canvas.height = 480;
     const ctx = canvas.getContext('2d');
 
-    // Background gradient
     const grad = ctx.createLinearGradient(0, 0, 640, 480);
     grad.addColorStop(0, '#1e293b');
     grad.addColorStop(1, '#0f172a');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 640, 480);
 
-    // Avatar silhouette
     ctx.fillStyle = '#334155';
     ctx.beginPath();
-    ctx.arc(320, 190, 80, 0, Math.PI * 2);
+    ctx.arc(320, 180, 75, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(320, 440, 170, Math.PI, 0);
+    ctx.arc(320, 410, 160, Math.PI, 0);
     ctx.fill();
 
-    // Center text
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = 'bold 20px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TAASCOR VERIFIED PUNCH', 320, 290);
+    ctx.fillText('TAASCOR VERIFIED PUNCH', 320, 270);
 
-    // ── BURN DATE/TIME STAMP ──
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    drawDateTimeStamp(ctx, 640, 480);
+    // Burn GPS watermark
+    drawGpsWatermark(ctx, 640, 480);
 
     activeCapturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
 
@@ -771,7 +1005,7 @@ function generateSimulatedSnapshot() {
 
     const statusEl = document.getElementById('cameraStatus');
     statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>✅</span><span>Verification photo generated with timestamp! Click Confirm to record punch.</span>';
+    statusEl.innerHTML = '<span>✅</span><span>Verification photo generated with GPS geotag! Click Confirm to record punch.</span>';
 }
 
 function submitPunch() {
@@ -782,18 +1016,32 @@ function submitPunch() {
 
     const btn = document.getElementById('submitPunchBtn');
     btn.disabled = true;
-    btn.textContent = '⏳ Submitting…';
+    btn.textContent = '⏳ Recording with GPS…';
 
     stopWebcamCamera();
     stopLiveDatetime();
+    stopLiveGpsTracking();
+
+    const latVal = liveGps.lat || '';
+    const lngVal = liveGps.lng || '';
+    const accVal = liveGps.accuracy ? String(liveGps.accuracy) : '';
+    const locVal = liveGps.address || window.TAASCOR_DEFAULT_AREA || '';
 
     if (currentWebcamMode === 'time-in') {
         document.getElementById('timeInPhotoHidden').value = activeCapturedDataUri;
         document.getElementById('timeInReturnTo').value = currentReturnUrl;
+        document.getElementById('timeInLat').value = latVal;
+        document.getElementById('timeInLng').value = lngVal;
+        document.getElementById('timeInAccuracy').value = accVal;
+        document.getElementById('timeInLocation').value = locVal;
         document.getElementById('sharedTimeInForm').submit();
     } else {
         document.getElementById('timeOutPhotoHidden').value = activeCapturedDataUri;
         document.getElementById('timeOutReturnTo').value = currentReturnUrl;
+        document.getElementById('timeOutLat').value = latVal;
+        document.getElementById('timeOutLng').value = lngVal;
+        document.getElementById('timeOutAccuracy').value = accVal;
+        document.getElementById('timeOutLocation').value = locVal;
         document.getElementById('sharedTimeOutForm').submit();
     }
 }

@@ -181,6 +181,14 @@ CREATE TABLE IF NOT EXISTS coordinator_attendance (
 
 ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_photo LONGTEXT;
 ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_photo LONGTEXT;
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_lat VARCHAR(32);
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_lng VARCHAR(32);
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_accuracy VARCHAR(32);
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_location TEXT;
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_lat VARCHAR(32);
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_lng VARCHAR(32);
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_accuracy VARCHAR(32);
+ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_location TEXT;
 
 CREATE TABLE IF NOT EXISTS btw_cases (
 

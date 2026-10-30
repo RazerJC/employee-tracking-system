@@ -684,13 +684,18 @@
                                             <% if (r.time_in_photo) { %>
                                                 <img src="<%= r.time_in_photo %>" 
                                                      style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:2px solid #d1fae5;cursor:pointer;flex-shrink:0;"
-                                                     onclick="openHrLightbox(this.src, '<%= (r.full_name || '').replace(/'/g, '') %>', 'Time-In', '<%= r.time_in %>')"
+                                                     onclick="openHrLightbox(this.src, '<%= (r.full_name || '').replace(/'/g, '') %>', 'Time-In', '<%= r.time_in %>', '<%= r.time_in_lat || '' %>', '<%= r.time_in_lng || '' %>', '<%= (r.time_in_location || '').replace(/'/g, '') %>')"
                                                      title="View Time-In verification photo" alt="Time-In photo">
                                             <% } %>
                                         </div>
                                         <span class="server-stamp-note" title="Server punch recorded">
                                             ⏱️ <%= r.time_in %>
                                         </span>
+                                        <% if (r.time_in_lat && r.time_in_lng) { %>
+                                            <a href="https://www.google.com/maps?q=<%= r.time_in_lat %>,<%= r.time_in_lng %>" target="_blank" rel="noopener" title="<%= r.time_in_location || 'GPS Location' %> (Open Map)" style="display:inline-flex;align-items:center;gap:3px;font-size:0.72rem;color:#059669;margin-top:2px;text-decoration:none;font-weight:600;">
+                                                <span>📍</span> <span style="text-decoration:underline;"><%= (r.time_in_location || (r.time_in_lat + ', ' + r.time_in_lng)).slice(0, 22) %></span>
+                                            </a>
+                                        <% } %>
                                     </div>
                                 <% } else { %>
                                     <span class="time-empty-val">Not yet clocked in</span>
@@ -708,13 +713,18 @@
                                             <% if (r.time_out_photo) { %>
                                                 <img src="<%= r.time_out_photo %>"
                                                      style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:2px solid #bfdbfe;cursor:pointer;flex-shrink:0;"
-                                                     onclick="openHrLightbox(this.src, '<%= (r.full_name || '').replace(/'/g, '') %>', 'Time-Out', '<%= r.time_out %>')"
+                                                     onclick="openHrLightbox(this.src, '<%= (r.full_name || '').replace(/'/g, '') %>', 'Time-Out', '<%= r.time_out %>', '<%= r.time_out_lat || '' %>', '<%= r.time_out_lng || '' %>', '<%= (r.time_out_location || '').replace(/'/g, '') %>')"
                                                      title="View Time-Out verification photo" alt="Time-Out photo">
                                             <% } %>
                                         </div>
                                         <span class="server-stamp-note" title="Server punch recorded">
                                             ⏱️ <%= r.time_out %>
                                         </span>
+                                        <% if (r.time_out_lat && r.time_out_lng) { %>
+                                            <a href="https://www.google.com/maps?q=<%= r.time_out_lat %>,<%= r.time_out_lng %>" target="_blank" rel="noopener" title="<%= r.time_out_location || 'GPS Location' %> (Open Map)" style="display:inline-flex;align-items:center;gap:3px;font-size:0.72rem;color:#2563eb;margin-top:2px;text-decoration:none;font-weight:600;">
+                                                <span>📍</span> <span style="text-decoration:underline;"><%= (r.time_out_location || (r.time_out_lat + ', ' + r.time_out_lng)).slice(0, 22) %></span>
+                                            </a>
+                                        <% } %>
                                     </div>
                                 <% } else if (r.time_in) { %>
                                     <span class="badge" style="background: rgba(5, 150, 105, 0.1); color: var(--color-success); font-weight: 600; padding: 4px 8px;">
@@ -832,7 +842,7 @@
                                         <% if (h.time_in_photo) { %>
                                             <img src="<%= h.time_in_photo %>" 
                                                  style="width:28px;height:28px;border-radius:4px;object-fit:cover;border:1px solid #d1fae5;cursor:pointer;flex-shrink:0;"
-                                                 onclick="openHrLightbox(this.src, '<%= (h.full_name || '').replace(/'/g, '') %>', 'Time-In', '<%= h.time_in %>')"
+                                                 onclick="openHrLightbox(this.src, '<%= (h.full_name || '').replace(/'/g, '') %>', 'Time-In', '<%= h.time_in %>', '<%= h.time_in_lat || '' %>', '<%= h.time_in_lng || '' %>', '<%= (h.time_in_location || '').replace(/'/g, '') %>')"
                                                  title="View Time-In photo" alt="Time-In photo">
                                         <% } %>
                                     </div>
@@ -843,7 +853,7 @@
                                         <% if (h.time_out_photo) { %>
                                             <img src="<%= h.time_out_photo %>" 
                                                  style="width:28px;height:28px;border-radius:4px;object-fit:cover;border:1px solid #bfdbfe;cursor:pointer;flex-shrink:0;"
-                                                 onclick="openHrLightbox(this.src, '<%= (h.full_name || '').replace(/'/g, '') %>', 'Time-Out', '<%= h.time_out %>')"
+                                                 onclick="openHrLightbox(this.src, '<%= (h.full_name || '').replace(/'/g, '') %>', 'Time-Out', '<%= h.time_out %>', '<%= h.time_out_lat || '' %>', '<%= h.time_out_lng || '' %>', '<%= (h.time_out_location || '').replace(/'/g, '') %>')"
                                                  title="View Time-Out photo" alt="Time-Out photo">
                                         <% } %>
                                     </div>
@@ -876,7 +886,10 @@
     <button type="button" onclick="closeHrLightbox()" style="position:fixed;top:18px;right:22px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:1.6rem;width:42px;height:42px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
     <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:90vw;">
         <img id="hrLightboxImg" src="" alt="Verification photo" style="max-width:90vw;max-height:78vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain;">
-        <div id="hrLightboxCaption" style="background:rgba(255,255,255,0.12);backdrop-filter:blur(8px);padding:10px 20px;border-radius:20px;color:#fff;font-size:0.88rem;font-weight:600;letter-spacing:0.3px;"></div>
+        <div id="hrLightboxCaption" style="background:rgba(255,255,255,0.12);backdrop-filter:blur(8px);padding:10px 20px;border-radius:20px;color:#fff;font-size:0.88rem;font-weight:600;letter-spacing:0.3px;text-align:center;"></div>
+        <a id="hrLightboxMapBtn" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;gap:6px;background:#2563eb;color:#fff;padding:8px 18px;border-radius:20px;text-decoration:none;font-weight:700;font-size:0.85rem;box-shadow:0 4px 14px rgba(37,99,235,0.4);">
+            <span>🗺️</span> <span>Open Location in Google Maps</span>
+        </a>
     </div>
 </div>
 
@@ -987,9 +1000,22 @@ function exportCoordinatorCsv() {
 }
 
 // ── HR PHOTO LIGHTBOX ─────────────────────────────────────
-function openHrLightbox(src, name, punchType, time) {
+function openHrLightbox(src, name, punchType, time, lat, lng, location) {
     document.getElementById('hrLightboxImg').src = src;
-    document.getElementById('hrLightboxCaption').textContent = `📸 ${name} — ${punchType} Verification Photo • ${time}`;
+    let cap = `📸 ${name} — ${punchType} Verification Photo • ${time}`;
+    if (location || (lat && lng)) {
+        cap += ` • 📍 ${location || (lat + ', ' + lng)}`;
+    }
+    document.getElementById('hrLightboxCaption').textContent = cap;
+    const mapBtn = document.getElementById('hrLightboxMapBtn');
+    if (mapBtn) {
+        if (lat && lng && lat !== 'null' && lng !== 'null') {
+            mapBtn.href = `https://www.google.com/maps?q=${lat},${lng}`;
+            mapBtn.style.display = 'inline-flex';
+        } else {
+            mapBtn.style.display = 'none';
+        }
+    }
     const lb = document.getElementById('hrPhotoLightbox');
     lb.style.display = 'flex';
 }

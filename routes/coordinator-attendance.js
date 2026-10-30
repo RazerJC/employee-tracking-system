@@ -37,6 +37,14 @@ router.get('/', requireAuth, async (req, res) => {
                 ca.time_out_server,
                 ca.time_in_photo,
                 ca.time_out_photo,
+                ca.time_in_lat,
+                ca.time_in_lng,
+                ca.time_in_accuracy,
+                ca.time_in_location,
+                ca.time_out_lat,
+                ca.time_out_lng,
+                ca.time_out_accuracy,
+                ca.time_out_location,
                 ca.correction_requested,
                 ca.correction_reason,
                 ca.correction_approved_by,
@@ -63,6 +71,14 @@ router.get('/', requireAuth, async (req, res) => {
                 ca.time_out_server,
                 ca.time_in_photo,
                 ca.time_out_photo,
+                ca.time_in_lat,
+                ca.time_in_lng,
+                ca.time_in_accuracy,
+                ca.time_in_location,
+                ca.time_out_lat,
+                ca.time_out_lng,
+                ca.time_out_accuracy,
+                ca.time_out_location,
                 ca.correction_requested,
                 ca.correction_reason,
                 ca.correction_approved_by,
@@ -127,6 +143,8 @@ router.get('/', requireAuth, async (req, res) => {
     if (user.role === 'COORDINATOR' || (user.role === 'HR' && req.query.view !== 'monitor')) {
         const history = (await db.prepare(`
             SELECT id, work_date, time_in, time_out, time_in_photo, time_out_photo,
+                   time_in_lat, time_in_lng, time_in_accuracy, time_in_location,
+                   time_out_lat, time_out_lng, time_out_accuracy, time_out_location,
                    correction_requested, correction_reason, correction_approved_by, correction_note
             FROM coordinator_attendance 
             WHERE user_id = ? 
@@ -136,6 +154,8 @@ router.get('/', requireAuth, async (req, res) => {
 
         const todayRecord = (await db.prepare(`
             SELECT id, work_date, time_in, time_out, time_in_photo, time_out_photo,
+                   time_in_lat, time_in_lng, time_in_accuracy, time_in_location,
+                   time_out_lat, time_out_lng, time_out_accuracy, time_out_location,
                    correction_requested, correction_approved_by, correction_note
             FROM coordinator_attendance 
             WHERE user_id = ? AND work_date = ?
@@ -279,10 +299,19 @@ router.post('/time-in', requireAuth, async (req, res) => {
         return res.redirect(fallbackRedirect);
     }
 
+    // Extract GPS location & coordinates
+    const lat = req.body.lat ? String(req.body.lat).slice(0, 32) : null;
+    const lng = req.body.lng ? String(req.body.lng).slice(0, 32) : null;
+    const accuracy = req.body.accuracy ? String(req.body.accuracy).slice(0, 32) : null;
+    const locationAddress = req.body.location_address ? String(req.body.location_address).slice(0, 500) : null;
+
     (await db.prepare(`
-        INSERT INTO coordinator_attendance (user_id, work_date, time_in, time_in_server, time_in_photo)
-        VALUES (?, ?, ?, ?, ?)
-    `).run(user.id, workDate, timeFormatted, serverTimestamp, timeInPhoto));
+        INSERT INTO coordinator_attendance (
+            user_id, work_date, time_in, time_in_server, time_in_photo,
+            time_in_lat, time_in_lng, time_in_accuracy, time_in_location
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(user.id, workDate, timeFormatted, serverTimestamp, timeInPhoto, lat, lng, accuracy, locationAddress));
 
     (await logAction(user.id, user.role + '_TIME_IN', 'coordinator_attendance', null, { workDate, timeFormatted }));
 
@@ -329,11 +358,18 @@ router.post('/time-out', requireAuth, async (req, res) => {
         return res.redirect(fallbackRedirect);
     }
 
+    // Extract GPS location & coordinates
+    const lat = req.body.lat ? String(req.body.lat).slice(0, 32) : null;
+    const lng = req.body.lng ? String(req.body.lng).slice(0, 32) : null;
+    const accuracy = req.body.accuracy ? String(req.body.accuracy).slice(0, 32) : null;
+    const locationAddress = req.body.location_address ? String(req.body.location_address).slice(0, 500) : null;
+
     (await db.prepare(`
         UPDATE coordinator_attendance 
-        SET time_out = ?, time_out_server = ?, time_out_photo = ?
+        SET time_out = ?, time_out_server = ?, time_out_photo = ?,
+            time_out_lat = ?, time_out_lng = ?, time_out_accuracy = ?, time_out_location = ?
         WHERE id = ?
-    `).run(timeFormatted, serverTimestamp, timeOutPhoto, existing.id));
+    `).run(timeFormatted, serverTimestamp, timeOutPhoto, lat, lng, accuracy, locationAddress, existing.id));
 
     (await logAction(user.id, user.role + '_TIME_OUT', 'coordinator_attendance', existing.id, { workDate, timeFormatted }));
 

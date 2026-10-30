@@ -456,6 +456,12 @@
             <div class="lbl">🟢 Time-In</div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="val time-in-val"><%= formatTime(todayRecord.time_in) %></div>
+                <% if (todayRecord.time_in_lat && todayRecord.time_in_lng) { %>
+                    <a href="https://www.google.com/maps?q=<%= todayRecord.time_in_lat %>,<%= todayRecord.time_in_lng %>" target="_blank" rel="noopener" title="<%= todayRecord.time_in_location || 'GPS Location' %> (Open Map)" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#059669;background:#f0fdf4;padding:3px 9px;border-radius:12px;text-decoration:none;border:1px solid #bbf7d0;font-weight:600;">
+                        <span>📍</span>
+                        <span><%= (todayRecord.time_in_location || (todayRecord.time_in_lat + ', ' + todayRecord.time_in_lng)).slice(0, 30) %></span>
+                    </a>
+                <% } %>
                 <% if (todayRecord.time_in_photo) { %>
                     <img src="<%= todayRecord.time_in_photo %>" class="time-photo-thumb" onclick="openLightbox(this.src)" title="Time-In Verification Photo" alt="Time-In photo">
                 <% } %>
@@ -478,6 +484,12 @@
                 <div class="lbl">🔵 Time-Out</div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div class="val time-out-val"><%= formatTime(todayRecord.time_out) %></div>
+                    <% if (todayRecord.time_out_lat && todayRecord.time_out_lng) { %>
+                        <a href="https://www.google.com/maps?q=<%= todayRecord.time_out_lat %>,<%= todayRecord.time_out_lng %>" target="_blank" rel="noopener" title="<%= todayRecord.time_out_location || 'GPS Location' %> (Open Map)" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#2563eb;background:#eff6ff;padding:3px 9px;border-radius:12px;text-decoration:none;border:1px solid #bfdbfe;font-weight:600;">
+                            <span>📍</span>
+                            <span><%= (todayRecord.time_out_location || (todayRecord.time_out_lat + ', ' + todayRecord.time_out_lng)).slice(0, 30) %></span>
+                        </a>
+                    <% } %>
                     <% if (todayRecord.time_out_photo) { %>
                         <img src="<%= todayRecord.time_out_photo %>" class="time-photo-thumb" onclick="openLightbox(this.src)" title="Time-Out Verification Photo" alt="Time-Out photo">
                     <% } %>
@@ -517,7 +529,16 @@
                         <% history.forEach(r => { %>
                             <tr>
                                 <td><%= formatDate(r.work_date) %></td>
-                                <td><strong style="color: var(--color-success);"><%= formatTime(r.time_in) %></strong></td>
+                                <td>
+                                    <strong style="color: var(--color-success);"><%= formatTime(r.time_in) %></strong>
+                                    <% if (r.time_in_lat && r.time_in_lng) { %>
+                                        <div style="margin-top: 2px;">
+                                            <a href="https://www.google.com/maps?q=<%= r.time_in_lat %>,<%= r.time_in_lng %>" target="_blank" rel="noopener" style="font-size:0.72rem;color:#059669;text-decoration:none;" title="<%= r.time_in_location || '' %>">
+                                                📍 Map
+                                            </a>
+                                        </div>
+                                    <% } %>
+                                </td>
                                 <td>
                                     <% if (r.time_in_photo) { %>
                                         <img src="<%= r.time_in_photo %>" class="time-photo-thumb" onclick="openLightbox(this.src)" title="Time-In Photo" alt="Time-In photo">
@@ -525,7 +546,16 @@
                                         <span style="color: #94a3b8; font-size: 0.8rem;">—</span>
                                     <% } %>
                                 </td>
-                                <td><strong style="color: var(--color-primary);"><%= r.time_out ? formatTime(r.time_out) : '—' %></strong></td>
+                                <td>
+                                    <strong style="color: var(--color-primary);"><%= r.time_out ? formatTime(r.time_out) : '—' %></strong>
+                                    <% if (r.time_out_lat && r.time_out_lng) { %>
+                                        <div style="margin-top: 2px;">
+                                            <a href="https://www.google.com/maps?q=<%= r.time_out_lat %>,<%= r.time_out_lng %>" target="_blank" rel="noopener" style="font-size:0.72rem;color:#2563eb;text-decoration:none;" title="<%= r.time_out_location || '' %>">
+                                                📍 Map
+                                            </a>
+                                        </div>
+                                    <% } %>
+                                </td>
                                 <td>
                                     <% if (r.time_out_photo) { %>
                                         <img src="<%= r.time_out_photo %>" class="time-photo-thumb" onclick="openLightbox(this.src)" title="Time-Out Photo" alt="Time-Out photo">
@@ -560,66 +590,8 @@
     </div>
 </div>
 
-<!-- ── WEBCAM CAPTURE MODAL ────────────────────────────────── -->
-<div class="webcam-modal-overlay" id="webcamModalOverlay">
-    <div class="webcam-modal">
-        <div class="webcam-modal-header">
-            <h4 id="webcamModalTitle">📸 Camera Time-In</h4>
-            <button type="button" class="webcam-close-btn" onclick="closeWebcam()">✕</button>
-        </div>
-        <div class="webcam-modal-body">
-
-            <!-- Camera preview -->
-            <div class="camera-preview-wrap" id="cameraPreviewWrap">
-                <video id="cameraVideo" autoplay playsinline muted></video>
-                <canvas id="cameraCanvas"></canvas>
-                <div class="camera-preview-overlay">
-                    <div class="camera-face-guide"></div>
-                </div>
-            </div>
-
-            <!-- Captured photo preview -->
-            <div id="capturedPhotoWrap">
-                <img id="capturedPhotoPreview" src="" alt="Captured photo">
-                <div class="photo-confirmed-badge">✓ Photo Captured</div>
-            </div>
-
-            <!-- Status message -->
-            <div class="camera-status" id="cameraStatus">
-                <span>🎥</span>
-                <span>Position your face within the guide, then tap Capture</span>
-            </div>
-
-            <!-- Action buttons — capture step -->
-            <div class="webcam-btn-row" id="captureRow">
-                <button type="button" class="btn-capture" id="captureBtn" onclick="capturePhoto()">
-                    📸 Capture Photo
-                </button>
-            </div>
-
-            <!-- Action buttons — confirm step (hidden until photo taken) -->
-            <div class="webcam-btn-row" id="confirmRow" style="display: none;">
-                <button type="button" class="btn-retake" onclick="retakePhoto()">
-                    🔄 Retake
-                </button>
-                <button type="button" class="btn-submit-punch" id="submitPunchBtn" onclick="submitPunch()">
-                    ✅ Confirm & Record
-                </button>
-            </div>
-
-            <!-- Hidden form for time-in -->
-            <form id="timeInForm" action="/coordinator-attendance/time-in" method="POST" style="display:none;">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <input type="hidden" name="time_in_photo" id="timeInPhotoInput">
-            </form>
-            <!-- Hidden form for time-out -->
-            <form id="timeOutForm" action="/coordinator-attendance/time-out" method="POST" style="display:none;">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <input type="hidden" name="time_out_photo" id="timeOutPhotoInput">
-            </form>
-        </div>
-    </div>
-</div>
+<!-- ── WEBCAM & LIVE GPS MODAL ──────────────────────────────── -->
+<%- include('../partials/attendance-webcam-modal') %>
 
 <!-- ── CORRECTION MODAL ────────────────────────────────────── -->
 <div id="correctionModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center;">
@@ -669,206 +641,6 @@ function updateCoordClock() {
 }
 setInterval(updateCoordClock, 1000);
 updateCoordClock();
-
-// ── WEBCAM LOGIC ─────────────────────────────────────────
-let currentStream = null;
-let currentMode = 'time-in'; // 'time-in' or 'time-out'
-let capturedDataUri = null;
-
-function openWebcam(mode) {
-    currentMode = mode;
-    capturedDataUri = null;
-    document.getElementById('webcamModalTitle').textContent = mode === 'time-in' ? '📸 Camera Time-In' : '📸 Camera Time-Out';
-
-    const submitBtn = document.getElementById('submitPunchBtn');
-    submitBtn.className = 'btn-submit-punch ' + (mode === 'time-in' ? 'in' : 'out');
-    submitBtn.textContent = mode === 'time-in' ? '✅ Confirm & Record Time-In' : '✅ Confirm & Record Time-Out';
-
-    // Show modal
-    document.getElementById('webcamModalOverlay').classList.add('active');
-    resetToCapture();
-    startCamera();
-}
-
-function closeWebcam() {
-    stopCamera();
-    document.getElementById('webcamModalOverlay').classList.remove('active');
-    capturedDataUri = null;
-}
-
-function startCamera() {
-    const statusEl = document.getElementById('cameraStatus');
-    const captureBtn = document.getElementById('captureBtn');
-    statusEl.className = 'camera-status';
-    statusEl.innerHTML = '<span>⏳</span><span>Starting camera preview…</span>';
-    captureBtn.disabled = true;
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        handleCoordCameraError('Webcam API is not supported in this browser.');
-        return;
-    }
-
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false })
-        .then(stream => handleCoordCameraSuccess(stream))
-        .catch(err1 => {
-            console.warn('facingMode: user failed, trying generic video constraint...', err1);
-            return navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                .then(stream => handleCoordCameraSuccess(stream))
-                .catch(err2 => {
-                    console.error('All camera attempts failed:', err2);
-                    handleCoordCameraError('Camera not available or access denied. Please allow camera permissions, or tap Instant Snap below.');
-                });
-        });
-}
-
-function handleCoordCameraSuccess(stream) {
-    currentStream = stream;
-    const video = document.getElementById('cameraVideo');
-    video.srcObject = stream;
-    video.play().catch(e => console.warn('Video play error:', e));
-
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>🎥</span><span>Live Camera Active — Align face within guide and tap Capture</span>';
-    document.getElementById('captureBtn').disabled = false;
-}
-
-function handleCoordCameraError(msg) {
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status error';
-    statusEl.innerHTML = `
-        <div style="width: 100%;">
-            <div style="margin-bottom: 6px;"><span>❌</span> ${msg}</div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-xs btn-outline" onclick="startCamera()">🔄 Retry</button>
-                <button type="button" class="btn btn-xs btn-success" onclick="generateCoordInstantSnap()">⚡ Instant Snap</button>
-            </div>
-        </div>
-    `;
-    document.getElementById('captureBtn').disabled = true;
-}
-
-function generateCoordInstantSnap() {
-    const canvas = document.getElementById('cameraCanvas');
-    canvas.width = 640;
-    canvas.height = 480;
-    const ctx = canvas.getContext('2d');
-
-    const grad = ctx.createLinearGradient(0, 0, 640, 480);
-    grad.addColorStop(0, '#1e293b');
-    grad.addColorStop(1, '#0f172a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 640, 480);
-
-    ctx.fillStyle = '#334155';
-    ctx.beginPath();
-    ctx.arc(320, 190, 80, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(320, 440, 170, Math.PI, 0);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('TAASCOR VERIFIED PUNCH', 320, 290);
-    ctx.font = '16px monospace';
-    ctx.fillStyle = '#38bdf8';
-    const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Manila' });
-    ctx.fillText('TIMESTAMP: ' + now, 320, 325);
-
-    capturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
-
-    document.getElementById('capturedPhotoPreview').src = capturedDataUri;
-    document.getElementById('capturedPhotoWrap').style.display = 'block';
-    document.getElementById('cameraPreviewWrap').style.display = 'none';
-    document.getElementById('captureRow').style.display = 'none';
-    document.getElementById('confirmRow').style.display = 'flex';
-
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>✅</span><span>Verification photo generated! Click Confirm to save punch.</span>';
-}
-
-function stopCamera() {
-    if (currentStream) {
-        currentStream.getTracks().forEach(t => t.stop());
-        currentStream = null;
-    }
-    const video = document.getElementById('cameraVideo');
-    video.srcObject = null;
-}
-
-function capturePhoto() {
-    const video = document.getElementById('cameraVideo');
-    const canvas = document.getElementById('cameraCanvas');
-
-    canvas.width  = video.videoWidth  || 640;
-    canvas.height = video.videoHeight || 480;
-
-    const ctx = canvas.getContext('2d');
-    // Mirror the canvas draw so photo matches preview
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    ctx.restore();
-
-    capturedDataUri = canvas.toDataURL('image/jpeg', 0.82);
-
-    // Show captured preview
-    document.getElementById('capturedPhotoPreview').src = capturedDataUri;
-    document.getElementById('capturedPhotoWrap').style.display = 'block';
-    document.getElementById('cameraPreviewWrap').style.display = 'none';
-
-    document.getElementById('captureRow').style.display = 'none';
-    document.getElementById('confirmRow').style.display = 'flex';
-
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>✅</span><span>Photo captured! Click Confirm to record your punch.</span>';
-}
-
-function retakePhoto() {
-    capturedDataUri = null;
-    resetToCapture();
-    // Restart camera if needed
-    if (!currentStream) {
-        startCamera();
-    } else {
-        document.getElementById('cameraPreviewWrap').style.display = 'block';
-        document.getElementById('cameraStatus').className = 'camera-status success';
-        document.getElementById('cameraStatus').innerHTML = '<span>🎥</span><span>Ready — position your face and tap Capture</span>';
-    }
-}
-
-function resetToCapture() {
-    document.getElementById('capturedPhotoWrap').style.display = 'none';
-    document.getElementById('cameraPreviewWrap').style.display = 'block';
-    document.getElementById('captureRow').style.display = 'flex';
-    document.getElementById('confirmRow').style.display = 'none';
-    document.getElementById('captureBtn').disabled = false;
-}
-
-function submitPunch() {
-    if (!capturedDataUri) {
-        alert('Please capture a photo first.');
-        return;
-    }
-
-    const btn = document.getElementById('submitPunchBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Submitting…';
-
-    stopCamera();
-
-    if (currentMode === 'time-in') {
-        document.getElementById('timeInPhotoInput').value = capturedDataUri;
-        document.getElementById('timeInForm').submit();
-    } else {
-        document.getElementById('timeOutPhotoInput').value = capturedDataUri;
-        document.getElementById('timeOutForm').submit();
-    }
-}
 
 // ── CORRECTION MODAL ─────────────────────────────────────
 function openCorrectionForm(id, date) {

@@ -58,6 +58,20 @@ router.post('/login', loginLimiter, async (req, res) => {
         `).get(trimmedInput, candidateEmail, candidatePrefix, trimmedInput, nameSearch));
 
         if (!user && trimmedInput.length >= 2) {
+            const inputWords = candidatePrefix.split(/[._-]+/).filter(w => w.length >= 3);
+            for (const word of inputWords) {
+                user = (await db.prepare(`
+                    SELECT * FROM users
+                    WHERE LOWER(TRIM(email)) LIKE LOWER(?)
+                       OR LOWER(TRIM(full_name)) LIKE LOWER(?)
+                    ORDER BY id ASC
+                    LIMIT 1
+                `).get(`%${word}%`, `%${word}%`));
+                if (user) break;
+            }
+        }
+
+        if (!user && trimmedInput.length >= 2) {
             user = (await db.prepare(`
                 SELECT * FROM users
                 WHERE LOWER(TRIM(email)) LIKE LOWER(?)
