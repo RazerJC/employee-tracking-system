@@ -413,3 +413,48 @@ CREATE TABLE IF NOT EXISTS btw_hr_actions (
     FOREIGN KEY (author_id) REFERENCES users(id),
     INDEX idx_btw_action_case (case_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS incident_reports (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    incident_ref VARCHAR(191) NOT NULL UNIQUE,
+    area_id INT NOT NULL,
+    reported_by INT NOT NULL,
+    employee_id INT,
+    incident_date DATE NOT NULL,
+    incident_time VARCHAR(32),
+    category VARCHAR(191) NOT NULL,
+    severity VARCHAR(32) NOT NULL DEFAULT 'minor',
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    location_details TEXT,
+    immediate_action_taken TEXT,
+    status VARCHAR(64) NOT NULL DEFAULT 'reported',
+    hr_reviewer_id INT,
+    hr_resolution_notes TEXT,
+    hr_action_type VARCHAR(64) DEFAULT 'none',
+    resolved_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (area_id) REFERENCES areas(id),
+    FOREIGN KEY (reported_by) REFERENCES users(id),
+    FOREIGN KEY (employee_id) REFERENCES employees(id),
+    FOREIGN KEY (hr_reviewer_id) REFERENCES users(id),
+    INDEX idx_incident_area (area_id),
+    INDEX idx_incident_status (status),
+    INDEX idx_incident_severity (severity),
+    INDEX idx_incident_emp (employee_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS incident_entries (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    incident_id INT NOT NULL,
+    author_id INT NOT NULL,
+    author_role VARCHAR(64) NOT NULL,
+    content TEXT NOT NULL,
+    entry_type VARCHAR(64) NOT NULL DEFAULT 'comment',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (incident_id) REFERENCES incident_reports(id),
+    FOREIGN KEY (author_id) REFERENCES users(id),
+    INDEX idx_incident_entries (incident_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

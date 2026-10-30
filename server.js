@@ -203,12 +203,17 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-    console.error(err);
+    console.error('[SERVER ERROR]', err);
 
     if (err.code === 'EBADCSRFTOKEN') {
         req.flash('error', 'Form session expired or invalid CSRF token. Please try again.');
-        const fallback = req.get('Referrer') || '/';
+        const fallback = req.get('Referrer') || '/login';
         return res.redirect(fallback);
+    }
+
+    if (req.path === '/login' || req.path === '/register' || (req.get('Referrer') && req.get('Referrer').includes('/login'))) {
+        req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+        return res.redirect('/login');
     }
 
     res.status(500).render('error', {
@@ -218,6 +223,14 @@ app.use((err, req, res, next) => {
             : err.message,
         code: 500
     });
+});
+
+// Guard against unexpected crashes
+process.on('uncaughtException', (err) => {
+    console.error('[PROCESS] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 async function start(port = PORT) {
@@ -248,31 +261,20 @@ async function start(port = PORT) {
         ).run(headHrHash);
     }
 
-    // 3. Generic Coordinator Account
-    const coordAccount = await db.prepare("SELECT id FROM users WHERE email = 'coordinator' OR email = 'coordinator@taascor.com'").get();
-    if (!coordAccount) {
-        const coordHash = bcrypt.hashSync('coordinator', 12);
+    // 3. Coordinator Account: Mark Pasa (Sole coordinator account)
+    const markPasaAccount = await db.prepare("SELECT id FROM users WHERE email = 'mark.pasa@taascor.com'").get();
+    if (!markPasaAccount) {
+        const coordHash = bcrypt.hashSync('Taascor@2026', 12);
         const res = await db.prepare(
             `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-             VALUES ('coordinator@taascor.com', ?, 'Coordinator Staff', 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
+             VALUES ('mark.pasa@taascor.com', ?, 'Mark Pasa', 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
         ).run(coordHash);
-        const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
-        if (firstArea) {
+        const biChainArea = await db.prepare("SELECT id FROM areas WHERE name LIKE '%BI CHAIN%' ORDER BY id ASC LIMIT 1").get();
+        if (biChainArea) {
             await db.prepare(`
                 INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                VALUES (?, ?, 1, UTC_TIMESTAMP(), 1, 'Default warehouse assignment')
-            `).run(res.lastInsertRowid, firstArea.id);
-        }
-    }
-
-    // Ensure all coordinators and warehouses from roster are synchronized
-    const coordCount = await db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'COORDINATOR'").get();
-    if (!coordCount || coordCount.count < 50) {
-        try {
-            const { seedCoordinatorsAndWarehouses } = require('./scripts/seed-coordinators-warehouses');
-            await seedCoordinatorsAndWarehouses();
-        } catch (e) {
-            console.error('Coordinators sync error on start:', e.message);
+                VALUES (?, ?, 1, UTC_TIMESTAMP(), 1, 'Assigned warehouse')
+            `).run(res.lastInsertRowid, biChainArea.id);
         }
     }
 

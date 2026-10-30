@@ -57,33 +57,32 @@ async function fixAllAccounts() {
         console.log('✓ Head HR account created — email: headhr@taascor.com, password: headhr@2026');
     }
 
-    // 4. Ensure generic Coordinator test account
-    console.log('\n--- 5. Fixing Generic Coordinator Account ---');
-    const existingCoord = await db.prepare("SELECT id FROM users WHERE email = 'coordinator' OR email = 'coordinator@taascor.com'").get();
-    let coordId = existingCoord ? existingCoord.id : null;
-    if (existingCoord) {
-        await db.prepare("UPDATE users SET email = 'coordinator@taascor.com', password_hash = ?, role = 'COORDINATOR', status = 'active', email_verified = 1, must_change_password = 0 WHERE id = ?").run(coordHash, existingCoord.id);
-        console.log('✓ Generic coordinator account updated — email: coordinator@taascor.com, password: Taascor@2026');
+    // 4. Ensure Mark Pasa Coordinator account
+    console.log('\n--- 5. Fixing Mark Pasa Coordinator Account ---');
+    const existingMark = await db.prepare("SELECT id FROM users WHERE email = 'mark.pasa@taascor.com'").get();
+    let markId = existingMark ? existingMark.id : null;
+    if (existingMark) {
+        await db.prepare("UPDATE users SET password_hash = ?, status = 'active', email_verified = 1, must_change_password = 0 WHERE id = ?").run(coordHash, existingMark.id);
+        console.log('✓ Mark Pasa account updated — email: mark.pasa@taascor.com, password: Taascor@2026');
     } else {
         const res = await db.prepare(
             `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-             VALUES ('coordinator@taascor.com', ?, 'Coordinator Staff', 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
+             VALUES ('mark.pasa@taascor.com', ?, 'Mark Pasa', 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
         ).run(coordHash);
-        coordId = res.lastInsertRowid;
-        console.log('✓ Generic coordinator account created — email: coordinator@taascor.com, password: Taascor@2026');
+        markId = res.lastInsertRowid;
+        console.log('✓ Mark Pasa account created — email: mark.pasa@taascor.com, password: Taascor@2026');
     }
 
-    // Assign area to generic coordinator if none
-    if (coordId) {
-        const coordArea = await db.prepare('SELECT id FROM coordinator_area_assignments WHERE user_id = ? AND is_current = 1').get(coordId);
-        if (!coordArea) {
-            const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
+    if (markId) {
+        const markArea = await db.prepare('SELECT id FROM coordinator_area_assignments WHERE user_id = ? AND is_current = 1').get(markId);
+        if (!markArea) {
+            const firstArea = await db.prepare("SELECT id FROM areas WHERE name LIKE '%BI CHAIN%' ORDER BY id ASC LIMIT 1").get();
             if (firstArea) {
                 await db.prepare(`
                     INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                    VALUES (?, ?, 1, UTC_TIMESTAMP(), 1, 'Default assignment')
-                `).run(coordId, firstArea.id);
-                console.log(`✓ Generic coordinator assigned to Area ${firstArea.id}`);
+                    VALUES (?, ?, 1, UTC_TIMESTAMP(), 1, 'Assigned warehouse')
+                `).run(markId, firstArea.id);
+                console.log(`✓ Mark Pasa assigned to Area ${firstArea.id}`);
             }
         }
     }

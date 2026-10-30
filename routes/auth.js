@@ -6,10 +6,8 @@ const { getDb } = require('../db/database');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email');
 const { loginLimiter } = require('../middleware/rate-limit');
 const { logAction } = require('../services/audit');
-const { notifyHR } = require('../services/notification');
+const { notifyHR, notifyRole } = require('../services/notification');
 const { isExpired } = require('../services/time');
-
-// GET /login
 router.get('/login', async (req, res) => {
     if (req.session.user) {
         if (req.session.user.status === 'pending') {
@@ -34,145 +32,162 @@ router.get('/login', async (req, res) => {
 
 // POST /login
 router.post('/login', loginLimiter, async (req, res) => {
-    const { email, password } = req.body;
-    const db = getDb();
-
-    if (!email || !password) {
-        req.flash('error', 'Please provide both username/email and password.');
-        return res.redirect('/login');
-    }
-
-    const trimmedInput = (email || '').trim();
-    const candidateEmail = trimmedInput.includes('@') ? trimmedInput : `${trimmedInput}@taascor.com`;
-    const candidatePrefix = trimmedInput.includes('@') ? trimmedInput.split('@')[0] : trimmedInput;
-    const nameSearch = trimmedInput.replace(/[._-]+/g, ' ').trim();
-    
-    // Flexible case-insensitive lookup by email, candidate email, prefix, or full name
-    const user = (await db.prepare(`
-        SELECT * FROM users 
-        WHERE LOWER(TRIM(email)) = LOWER(?) 
-           OR LOWER(TRIM(email)) = LOWER(?)
-           OR LOWER(TRIM(email)) = LOWER(?)
-           OR LOWER(TRIM(full_name)) = LOWER(?)
-           OR LOWER(TRIM(full_name)) = LOWER(?)
-        LIMIT 1
-    `).get(trimmedInput, candidateEmail, candidatePrefix, trimmedInput, nameSearch));
-
-    if (!user) {
-        console.warn(`[AUTH] Login failed: User not found for input "${trimmedInput}"`);
-        req.flash('error', 'Invalid email or password.');
-        return res.redirect('/login');
-    }
-
-    // Flexible password check: bcrypt compare OR fallback common passwords for convenience
-    let validPassword = false;
     try {
-        if (user.password_hash) {
-            validPassword = bcrypt.compareSync(password, user.password_hash);
+        const { email, password } = req.body;
+        const db = getDb();
+
+        if (!email || !password) {
+            req.flash('error', 'Mali ang username o password. Pakilagay pareho ang username at password.');
+            return res.redirect('/login');
         }
-    } catch (e) {
-        console.error('[AUTH] bcrypt compare error:', e);
-    }
 
-    if (!validPassword) {
-        const lowerInput = (password || '').trim().toLowerCase();
-        const userEmailPrefix = (user.email || '').split('@')[0].toLowerCase();
-        const userRoleLower = (user.role || '').toLowerCase().replace(/_/g, '');
+        const trimmedInput = (email || '').trim();
+        const candidateEmail = trimmedInput.includes('@') ? trimmedInput : `${trimmedInput}@taascor.com`;
+        const candidatePrefix = trimmedInput.includes('@') ? trimmedInput.split('@')[0] : trimmedInput;
+        const nameSearch = trimmedInput.replace(/[._-]+/g, ' ').trim();
+        
+        // Flexible case-insensitive lookup by email, candidate email, prefix, or full name
+        const user = (await db.prepare(`
+            SELECT * FROM users 
+            WHERE LOWER(TRIM(email)) = LOWER(?) 
+               OR LOWER(TRIM(email)) = LOWER(?)
+               OR LOWER(TRIM(email)) = LOWER(?)
+               OR LOWER(TRIM(full_name)) = LOWER(?)
+               OR LOWER(TRIM(full_name)) = LOWER(?)
+            LIMIT 1
+        `).get(trimmedInput, candidateEmail, candidatePrefix, trimmedInput, nameSearch));
 
-        const commonPasswords = [
-            // Standard 2026 passwords (used by fix-and-verify-all-accounts.js)
-            'Taascor@2026', 'taascor@2026', 'taascor2026', 'taascor', 'taascor123', 'taascor123!',
-            'coordinator@2026', 'Coordinator@2026', 'coordinator', 'coordinator123!', 'coord123!',
-            'admin@2026', 'Admin@2026', 'admin', 'admin123!',
-            'headhr@2026', 'HeadHr@2026', 'headhr', 'head_hr', 'headhr123!',
-            'hr@2026', 'Hr@2026', 'hr', 'hr123!', 'hruser123!',
-            'phixc', 'phixc@2026', 'Phixc@2026', '12345678', 'password', 'pass123'
-        ];
-
-        if (
-            commonPasswords.includes(lowerInput) ||
-            lowerInput === userEmailPrefix ||
-            lowerInput === userRoleLower ||
-            (user.role === 'HEAD_HR' && (lowerInput === 'headhr' || lowerInput === 'head_hr'))
-        ) {
-            validPassword = true;
-            // Synchronize password in DB to the standard hash
-            try {
-                const newHash = bcrypt.hashSync(password, 12);
-                await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
-            } catch (err) {
-                console.error('[AUTH] Failed to update password hash:', err);
-            }
+        if (!user) {
+            console.warn(`[AUTH] Login failed: User not found for input "${trimmedInput}"`);
+            req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+            return res.redirect('/login');
         }
-    }
 
-    if (!validPassword) {
-        console.warn(`[AUTH] Login failed: Invalid password for user ${user.email}`);
-        req.flash('error', 'Invalid email or password.');
-        return res.redirect('/login');
-    }
-
-    // Check account status
-    if (user.status === 'suspended') {
-        req.flash('error', 'Your account has been suspended. Please contact HR or the Administrator.');
-        return res.redirect('/login');
-    }
-
-    if (user.status === 'rejected') {
-        req.flash('error', `Your registration was rejected. Reason: ${user.rejection_remarks || 'Not specified'}`);
-        return res.redirect('/login');
-    }
-
-    // Auto-activate and verify account so user is never stuck
-    if (user.status === 'pending') {
-        await db.prepare("UPDATE users SET status = 'active' WHERE id = ?").run(user.id);
-        user.status = 'active';
-    }
-
-    if (!user.email_verified || user.must_change_password) {
-        await db.prepare('UPDATE users SET email_verified = 1, must_change_password = 0 WHERE id = ?').run(user.id);
-        user.email_verified = 1;
-        user.must_change_password = 0;
-    }
-
-    // Ensure coordinator has an assigned area so they never face 403 Forbidden
-    if (user.role === 'COORDINATOR') {
+        // Flexible password check: bcrypt compare OR fallback common passwords for convenience
+        let validPassword = false;
         try {
-            const hasArea = await db.prepare('SELECT id FROM coordinator_area_assignments WHERE user_id = ? AND is_current = 1').get(user.id);
-            if (!hasArea) {
-                const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
-                if (firstArea) {
-                    await db.prepare(`
-                        INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                        VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Auto-assigned on login')
-                    `).run(user.id, firstArea.id, user.id);
-                }
+            if (user.password_hash) {
+                validPassword = bcrypt.compareSync(password, user.password_hash);
             }
         } catch (e) {
-            console.error('[AUTH] Area auto-assignment error:', e.message);
+            console.error('[AUTH] bcrypt compare error:', e);
         }
+
+        if (!validPassword) {
+            const lowerInput = (password || '').trim().toLowerCase();
+            const userEmailPrefix = (user.email || '').split('@')[0].toLowerCase();
+            const userRoleLower = (user.role || '').toLowerCase().replace(/_/g, '');
+
+            const commonPasswords = [
+                // Standard 2026 passwords (used by fix-and-verify-all-accounts.js)
+                'Taascor@2026', 'taascor@2026', 'taascor2026', 'taascor', 'taascor123', 'taascor123!',
+                'coordinator@2026', 'Coordinator@2026', 'coordinator', 'coordinator123!', 'coord123!',
+                'admin@2026', 'Admin@2026', 'admin', 'admin123!',
+                'headhr@2026', 'HeadHr@2026', 'headhr', 'head_hr', 'headhr123!',
+                'hr@2026', 'Hr@2026', 'hr', 'hr123!', 'hruser123!',
+                'phixc', 'phixc@2026', 'Phixc@2026', '12345678', 'password', 'pass123'
+            ];
+
+            if (
+                commonPasswords.includes(lowerInput) ||
+                lowerInput === userEmailPrefix ||
+                lowerInput === userRoleLower ||
+                (user.role === 'HEAD_HR' && (lowerInput === 'headhr' || lowerInput === 'head_hr'))
+            ) {
+                validPassword = true;
+                // Synchronize password in DB to the standard hash
+                try {
+                    const newHash = bcrypt.hashSync(password, 12);
+                    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
+                } catch (err) {
+                    console.error('[AUTH] Failed to update password hash:', error);
+                }
+            }
+        }
+
+        if (!validPassword) {
+            console.warn(`[AUTH] Login failed: Invalid password for user ${user.email}`);
+            req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+            return res.redirect('/login');
+        }
+
+        // Check account status
+        if (user.status === 'suspended') {
+            req.flash('error', 'Naka-suspend ang account na ito. Mangyaring makipag-ugnayan sa HR o Administrator.');
+            return res.redirect('/login');
+        }
+
+        if (user.status === 'rejected') {
+            req.flash('error', `Hindi naaprubahan ang registration: ${user.rejection_remarks || 'Not specified'}`);
+            return res.redirect('/login');
+        }
+
+        // Account pending approval - redirect to /pending
+        if (user.status === 'pending') {
+            let approverRole = 'HR';
+            if (user.role === 'HR') approverRole = 'Head HR';
+            if (user.role === 'HEAD_HR') approverRole = 'Administrator';
+
+            req.session.user = {
+                id: user.id,
+                email: user.email,
+                full_name: user.full_name,
+                role: user.role,
+                status: 'pending'
+            };
+            req.flash('warning', `Naka-pending pa ang iyong account. Naghihintay ito ng approval mula sa ${approverRole}.`);
+            return res.redirect('/pending');
+        }
+
+        if (!user.email_verified || user.must_change_password) {
+            await db.prepare('UPDATE users SET email_verified = 1, must_change_password = 0 WHERE id = ?').run(user.id);
+            user.email_verified = 1;
+            user.must_change_password = 0;
+        }
+
+        // Ensure coordinator has an assigned area so they never face 403 Forbidden
+        if (user.role === 'COORDINATOR') {
+            try {
+                const hasArea = await db.prepare('SELECT id FROM coordinator_area_assignments WHERE user_id = ? AND is_current = 1').get(user.id);
+                if (!hasArea) {
+                    const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
+                    if (firstArea) {
+                        await db.prepare(`
+                            INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
+                            VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Auto-assigned on login')
+                        `).run(user.id, firstArea.id, user.id);
+                    }
+                }
+            } catch (e) {
+                console.error('[AUTH] Area auto-assignment error:', e.message);
+            }
+        }
+
+        // Update last login
+        (await db.prepare("UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?").run(user.id));
+
+        // Rotate session ID
+        await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+
+        // Set user session
+        req.session.user = {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role,
+            status: 'active',
+            must_change_password: 0
+        };
+
+        (await logAction(user.id, 'LOGIN', 'users', user.id, { email: user.email }, req.ip));
+
+        req.flash('success', `Welcome back, ${user.full_name}!`);
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error('[AUTH] Login error caught safely:', err);
+        req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+        return res.redirect('/login');
     }
-
-    // Update last login
-    (await db.prepare("UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?").run(user.id));
-
-    // Rotate session ID
-    await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
-
-    // Set user session
-    req.session.user = {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-        status: 'active',
-        must_change_password: 0
-    };
-
-    (await logAction(user.id, 'LOGIN', 'users', user.id, { email: user.email }, req.ip));
-
-    req.flash('success', `Welcome back, ${user.full_name}!`);
-    res.redirect('/dashboard');
 });
 
 // GET /register
@@ -193,7 +208,7 @@ router.get('/register', async (req, res) => {
 
 // POST /register
 router.post('/register', async (req, res) => {
-    const { full_name, email, password, confirm_password, area_id } = req.body;
+    const { full_name, email, password, confirm_password, role, area_id } = req.body;
     const db = getDb();
 
     if (!full_name || !email || !password || !confirm_password) {
@@ -221,33 +236,51 @@ router.post('/register', async (req, res) => {
         return res.redirect('/login');
     }
 
+    const allowedRoles = ['COORDINATOR', 'HR', 'HEAD_HR'];
+    const chosenRole = allowedRoles.includes(role) ? role : 'COORDINATOR';
+
     const hash = bcrypt.hashSync(password, 12);
 
-    // Register coordinator as active with email verified for instant access
+    // Register user with status = 'pending' awaiting role-specific approval
     const result = (await db.prepare(`
         INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-        VALUES (?, ?, ?, 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-    `).run(candidateEmail, hash, full_name.trim()));
+        VALUES (?, ?, ?, ?, 'pending', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+    `).run(candidateEmail, hash, full_name.trim(), chosenRole));
 
     const userId = result.lastInsertRowid;
 
-    // Assign to selected area or first available area
-    let targetAreaId = area_id ? parseInt(area_id) : null;
-    if (!targetAreaId) {
-        const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
-        if (firstArea) targetAreaId = firstArea.id;
+    let targetAreaId = null;
+    if (chosenRole === 'COORDINATOR') {
+        targetAreaId = area_id ? parseInt(area_id) : null;
+        if (!targetAreaId) {
+            const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
+            if (firstArea) targetAreaId = firstArea.id;
+        }
+
+        if (targetAreaId) {
+            await db.prepare(`
+                INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
+                VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Assigned upon registration')
+            `).run(userId, targetAreaId, userId);
+        }
     }
 
-    if (targetAreaId) {
-        await db.prepare(`
-            INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-            VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Assigned upon registration')
-        `).run(userId, targetAreaId, userId);
+    (await logAction(userId, 'REGISTER', 'users', userId, { email: candidateEmail, role: chosenRole, area_id: targetAreaId }, req.ip));
+
+    // Role-specific notifications and messages
+    if (chosenRole === 'COORDINATOR') {
+        await notifyRole('HR', 'Bagong Coordinator Registration', `Si ${full_name.trim()} ay nag-apply bilang Coordinator at naghihintay ng approval mula sa HR.`, '/admin/pending-coordinators');
+        await notifyRole('ADMIN', 'Bagong Coordinator Registration', `Si ${full_name.trim()} ay nag-apply bilang Coordinator at naghihintay ng approval mula sa HR.`, '/admin/pending-coordinators');
+        req.flash('success', 'Registration submitted! Ang iyong coordinator account ay naghihintay ng approval mula sa HR.');
+    } else if (chosenRole === 'HR') {
+        await notifyRole('HEAD_HR', 'Bagong HR Staff Registration', `Si ${full_name.trim()} ay nag-apply bilang HR Staff at naghihintay ng approval mula sa Head HR.`, '/admin/pending-coordinators');
+        await notifyRole('ADMIN', 'Bagong HR Staff Registration', `Si ${full_name.trim()} ay nag-apply bilang HR Staff at naghihintay ng approval mula sa Head HR.`, '/admin/pending-coordinators');
+        req.flash('success', 'Registration submitted! Ang iyong HR account ay naghihintay ng approval mula sa Head HR.');
+    } else if (chosenRole === 'HEAD_HR') {
+        await notifyRole('ADMIN', 'Bagong Head HR Registration', `Si ${full_name.trim()} ay nag-apply bilang Head HR at naghihintay ng approval mula sa Administrator.`, '/admin/pending-coordinators');
+        req.flash('success', 'Registration submitted! Ang iyong Head HR account ay naghihintay ng approval mula sa System Administrator.');
     }
 
-    (await logAction(userId, 'REGISTER', 'users', userId, { email: candidateEmail, role: 'COORDINATOR', area_id: targetAreaId }, req.ip));
-
-    req.flash('success', 'Registration successful! Your account is active. You can now log in.');
     res.redirect('/login');
 });
 

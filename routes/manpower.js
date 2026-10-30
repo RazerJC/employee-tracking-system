@@ -412,7 +412,7 @@ router.post('/:id/confirm-arrival', requireAuth, async (req, res) => {
         (await db.prepare(`
             INSERT INTO employee_schedules (employee_id, work_date, shift_start, shift_end, is_rest_day, created_by, created_at)
             VALUES (?, ?, ?, ?, 0, ?, UTC_TIMESTAMP())
-        ON CONFLICT(employee_id, work_date) DO UPDATE SET shift_start = excluded.shift_start, shift_end = excluded.shift_end, is_rest_day = excluded.is_rest_day
+            ON DUPLICATE KEY UPDATE shift_start = VALUES(shift_start), shift_end = VALUES(shift_end), is_rest_day = VALUES(is_rest_day)
         `).run(employeeId, request.deployment_date, shift_start, shift_end, user.id));
     }
 

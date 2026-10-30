@@ -178,12 +178,12 @@
                 <span class="nav-icon">📋</span>
                 <span>Forum Report</span>
             </a>
-<% if (user && (user.role === 'HR' || user.role === 'ADMIN')) { %>
+<% if (user && (user.role === 'HR' || user.role === 'HEAD_HR' || user.role === 'ADMIN')) { %>
                 <a href="/admin/pending-coordinators" class="nav-item <%= currentPath.startsWith('/admin/pending-coordinators') ? 'active' : '' %> <%= isGlowing('/admin/pending-coordinators') ? 'nav-item-glowing' : '' %>" data-glow-path="/admin/pending-coordinators">
                     <span class="nav-icon"><%- include('outline-icon', {icon:'hourglass'}) %></span>
                     <span>Pending Approvals</span>
                     <% if (isGlowing('/admin/pending-coordinators')) { %>
-                        <span class="nav-glow-badge" title="<%= glowCount('/admin/pending-coordinators') %> pending coordinator registration(s)">
+                        <span class="nav-glow-badge" title="<%= glowCount('/admin/pending-coordinators') %> pending registration(s)">
                             <span class="nav-glow-dot"></span>
                             <span class="nav-glow-count"><%= glowCount('/admin/pending-coordinators') %></span>
                         </span>

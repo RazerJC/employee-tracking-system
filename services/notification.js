@@ -99,11 +99,27 @@ async function getMenuGlow(user) {
                 glow['/btw'] = Math.max(glow['/btw'], Number(pendingBtw.c));
             }
 
-            const pendingCoordinators = (await db.prepare(
-                "SELECT COUNT(*) as c FROM users WHERE role = 'COORDINATOR' AND status = 'pending'"
-            ).get());
-            if (pendingCoordinators && pendingCoordinators.c > 0) {
-                glow['/admin/pending-coordinators'] = Math.max(glow['/admin/pending-coordinators'], Number(pendingCoordinators.c));
+            if (user.role === 'HR') {
+                const pendingCoordinators = (await db.prepare(
+                    "SELECT COUNT(*) as c FROM users WHERE role = 'COORDINATOR' AND status = 'pending'"
+                ).get());
+                if (pendingCoordinators && pendingCoordinators.c > 0) {
+                    glow['/admin/pending-coordinators'] = Math.max(glow['/admin/pending-coordinators'], Number(pendingCoordinators.c));
+                }
+            } else if (user.role === 'HEAD_HR') {
+                const pendingHr = (await db.prepare(
+                    "SELECT COUNT(*) as c FROM users WHERE role = 'HR' AND status = 'pending'"
+                ).get());
+                if (pendingHr && pendingHr.c > 0) {
+                    glow['/admin/pending-coordinators'] = Math.max(glow['/admin/pending-coordinators'], Number(pendingHr.c));
+                }
+            } else if (user.role === 'ADMIN') {
+                const pendingAll = (await db.prepare(
+                    "SELECT COUNT(*) as c FROM users WHERE role IN ('COORDINATOR', 'HR', 'HEAD_HR') AND status = 'pending'"
+                ).get());
+                if (pendingAll && pendingAll.c > 0) {
+                    glow['/admin/pending-coordinators'] = Math.max(glow['/admin/pending-coordinators'], Number(pendingAll.c));
+                }
             }
 
             const openConcerns = (await db.prepare(

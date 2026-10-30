@@ -180,7 +180,7 @@ router.post('/', requireAuth, async (req, res) => {
             ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?,
-            'reported', datetime('now'), datetime('now')
+            'reported', UTC_TIMESTAMP(), UTC_TIMESTAMP()
         )
     `).run(
         incidentRef,
@@ -202,7 +202,7 @@ router.post('/', requireAuth, async (req, res) => {
     // Create initial entry in timeline
     (await db.prepare(`
         INSERT INTO incident_entries (incident_id, author_id, author_role, content, entry_type, created_at)
-        VALUES (?, ?, ?, ?, 'system', datetime('now'))
+        VALUES (?, ?, ?, ?, 'system', UTC_TIMESTAMP())
     `).run(
         incidentId,
         user.id,
@@ -301,11 +301,11 @@ router.post('/:id/comment', requireAuth, async (req, res) => {
 
     (await db.prepare(`
         INSERT INTO incident_entries (incident_id, author_id, author_role, content, entry_type, created_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())
     `).run(id, user.id, user.role, content.trim(), entryType));
 
     // Update incident timestamp
-    (await db.prepare("UPDATE incident_reports SET updated_at = datetime('now') WHERE id = ?").run(id));
+    (await db.prepare("UPDATE incident_reports SET updated_at = UTC_TIMESTAMP() WHERE id = ?").run(id));
 
     // Notify involved parties
     if (user.role === 'COORDINATOR') {
@@ -360,7 +360,7 @@ router.post('/:id/action', requireAuth, async (req, res) => {
             hr_action_type = ?,
             hr_resolution_notes = COALESCE(?, hr_resolution_notes),
             resolved_at = ?,
-            updated_at = datetime('now')
+            updated_at = UTC_TIMESTAMP()
         WHERE id = ?
     `).run(
         newStatus,
@@ -375,7 +375,7 @@ router.post('/:id/action', requireAuth, async (req, res) => {
     const actionDesc = `Status updated to [${newStatus.toUpperCase()}]. Action Taken: [${actionType.toUpperCase()}]. ${remarks ? 'Notes: ' + remarks.trim() : ''}`;
     (await db.prepare(`
         INSERT INTO incident_entries (incident_id, author_id, author_role, content, entry_type, created_at)
-        VALUES (?, ?, ?, ?, 'hr_action', datetime('now'))
+        VALUES (?, ?, ?, ?, 'hr_action', UTC_TIMESTAMP())
     `).run(id, user.id, user.role, actionDesc));
 
     // Notify coordinator

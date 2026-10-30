@@ -23,10 +23,20 @@
                 Hello <strong><%= user.full_name %></strong>, your company email (<%= user.email %>) has been verified.
             </p>
             <div style="background: var(--color-info-bg); border: 1px solid var(--color-info); border-radius: 6px; padding: 14px; margin-bottom: 24px; text-align: left; font-size: 0.85rem; color: #1E40AF;">
-                <div style="font-weight: 700; margin-bottom: 4px;">What happens next?</div>
-                <div>1. The HR department reviews your registration.</div>
-                <div>2. HR assigns your designated warehouse or operational area.</div>
-                <div>3. Upon activation, you will be able to mark attendance and manage employee schedules.</div>
+                <div style="font-weight: 700; margin-bottom: 6px;">Approval Process for <%= user.role %>:</div>
+                <% if (user.role === 'COORDINATOR') { %>
+                    <div>1. The <strong>HR Department</strong> reviews your coordinator registration.</div>
+                    <div>2. HR assigns your designated warehouse or operational facility.</div>
+                    <div>3. Once approved, you can immediately log in and manage employee attendance.</div>
+                <% } else if (user.role === 'HR') { %>
+                    <div>1. The <strong>Head HR Coordinator</strong> reviews your HR account registration.</div>
+                    <div>2. Head HR verifies and activates your company credentials.</div>
+                    <div>3. Once approved, you will have access to company-wide workforce operations.</div>
+                <% } else { %>
+                    <div>1. The <strong>System Administrator</strong> reviews your Head HR registration.</div>
+                    <div>2. Administrator verifies and grants executive administrative privileges.</div>
+                    <div>3. Once approved, you can log in to monitor coordinators and staff.</div>
+                <% } %>
             </div>
 
             <a href="/logout" class="btn btn-outline btn-block">Sign Out</a>

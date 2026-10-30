@@ -1,16 +1,14 @@
-// SQLite-compatible session store for local development.
-// Uses express-session's built-in MemoryStore so no extra npm packages are needed.
-// Sessions will reset on server restart — acceptable for local/dev use.
 const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+const { getPool } = require('./database');
 
 function createSessionStore() {
-    const store = new session.MemoryStore();
-
-    // Add an onReady() shim so server.js can call await sessionStore.onReady()
-    store.onReady = () => Promise.resolve();
-
-    // Add a close() shim so server.js can call await sessionStore.close()
-    store.close = () => Promise.resolve();
+    const store = new MySQLStore({
+        createDatabaseTable: true,
+        endConnectionOnClose: false,
+        expiration: 8 * 60 * 60 * 1000,
+        checkExpirationInterval: 15 * 60 * 1000
+    }, getPool());
 
     return store;
 }

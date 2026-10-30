@@ -2,18 +2,42 @@
 
 <div class="page-header">
     <div>
-        <h2>Pending Coordinator Registrations</h2>
+        <h2>
+            <% if (user.role === 'HR') { %>
+                Pending Coordinator Registrations
+            <% } else if (user.role === 'HEAD_HR') { %>
+                Pending HR Staff Registrations
+            <% } else { %>
+                Pending Account Registrations (All Roles)
+            <% } %>
+        </h2>
         <div class="breadcrumb">
             <a href="/dashboard">Dashboard</a>
             <span>/</span>
-            <span>Registration Approvals & Warehouse Assignments</span>
+            <span>
+                <% if (user.role === 'HR') { %>
+                    Review & Assign Warehouse to Coordinators
+                <% } else if (user.role === 'HEAD_HR') { %>
+                    Review & Approve HR Staff Accounts
+                <% } else { %>
+                    System Administrator Master Approvals
+                <% } %>
+            </span>
         </div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h3>Awaiting HR Approval (<%= pendingList.length %>)</h3>
+        <h3>
+            <% if (user.role === 'HR') { %>
+                Coordinator Applications Awaiting HR Approval (<%= pendingList.length %>)
+            <% } else if (user.role === 'HEAD_HR') { %>
+                HR Staff Applications Awaiting Head HR Approval (<%= pendingList.length %>)
+            <% } else { %>
+                Applications Awaiting Administrator Approval (<%= pendingList.length %>)
+            <% } %>
+        </h3>
     </div>
     <div class="card-body" style="padding: 0;">
         <div class="table-responsive">
@@ -21,49 +45,60 @@
                 <thead>
                     <tr>
                         <th>Applicant Name</th>
-                        <th>Company Email</th>
-                        <th>Email Verified</th>
+                        <th>Applied Role</th>
+                        <th>Email / Username</th>
                         <th>Registration Date</th>
-                        <th>Assigned Warehouse <span class="required">*</span></th>
+                        <th>Warehouse / Operational Scope</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% if (pendingList.length === 0) { %>
                         <tr>
-                            <td colspan="6" class="text-center" style="padding: 32px;">
-                                No pending coordinator registrations. All applicants have been processed.
+                            <td colspan="6" class="text-center" style="padding: 36px; color: var(--color-gray-500);">
+                                <div style="font-size: 2rem; margin-bottom: 8px;">✓</div>
+                                <div>No pending account registrations awaiting your approval.</div>
                             </td>
                         </tr>
                     <% } else { %>
                         <% pendingList.forEach(p => { %>
                             <tr>
                                 <td><strong><%= p.full_name %></strong></td>
-                                <td><%= p.email %></td>
                                 <td>
-                                    <% if (p.email_verified) { %>
-                                        <span class="badge badge-success">✓ Verified</span>
+                                    <% if (p.role === 'COORDINATOR') { %>
+                                        <span class="badge badge-primary">COORDINATOR</span>
+                                    <% } else if (p.role === 'HR') { %>
+                                        <span class="badge" style="background: rgba(139,26,26,0.1); color: var(--color-accent); font-weight: 700; border: 1px solid rgba(139,26,26,0.2);">HR STAFF</span>
+                                    <% } else if (p.role === 'HEAD_HR') { %>
+                                        <span class="badge" style="background: rgba(37,99,235,0.15); color: #1d4ed8; font-weight: 700; border: 1px solid rgba(37,99,235,0.3);">HEAD HR</span>
                                     <% } else { %>
-                                        <span class="badge badge-warning">Unverified</span>
+                                        <span class="badge"><%= p.role %></span>
                                     <% } %>
                                 </td>
+                                <td><%= p.email %></td>
                                 <td><%= formatDate(p.created_at) %></td>
                                 <td>
-                                    <form id="approveForm_<%= p.id %>" action="/admin/approve-coordinator" method="POST" style="display: flex; gap: 8px;">
+                                    <form id="approveForm_<%= p.id %>" action="/admin/approve-coordinator" method="POST" style="display: flex; gap: 8px; align-items: center;">
                                         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                                         <input type="hidden" name="user_id" value="<%= p.id %>">
-                                        <select name="area_id" class="form-control" required style="font-size: 0.85rem; min-width: 170px;">
-                                            <option value="">— Select Warehouse —</option>
-                                            <% areas.forEach(a => { %>
-                                                <option value="<%= a.id %>"><%= a.name %></option>
-                                            <% }) %>
-                                        </select>
+                                        <% if (p.role === 'COORDINATOR') { %>
+                                            <select name="area_id" class="form-control" required style="font-size: 0.85rem; min-width: 180px;">
+                                                <option value="">— Select Warehouse * —</option>
+                                                <% areas.forEach(a => { %>
+                                                    <option value="<%= a.id %>"><%= a.name %></option>
+                                                <% }) %>
+                                            </select>
+                                        <% } else { %>
+                                            <span class="badge" style="background: #eef2ff; color: #4338ca; padding: 6px 10px; font-size: 0.82rem;">
+                                                🏢 General / All Areas
+                                            </span>
+                                        <% } %>
                                     </form>
                                 </td>
                                 <td class="text-right">
                                     <div class="btn-group" style="justify-content: flex-end;">
                                         <button type="submit" form="approveForm_<%= p.id %>" class="btn btn-sm btn-success">
-                                            Approve & Assign
+                                            <%= p.role === 'COORDINATOR' ? 'Approve & Assign' : 'Approve Account' %>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline" style="color: var(--color-danger);"
                                                 onclick="openRejectModal('<%= p.id %>', '<%= p.full_name %>')">
