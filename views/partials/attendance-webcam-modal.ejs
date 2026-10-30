@@ -1,4 +1,4 @@
-<!-- ── TAASCOR ATTENDANCE CAMERA (LIGHTWEIGHT & FAST) ──────────────────── -->
+<!-- ── TAASCOR ATTENDANCE CAMERA (LIGHTWEIGHT, FAST & OFFICIAL TAASCOR BRANDING) ── -->
 <style>
 .webcam-modal-overlay {
     display: none;
@@ -16,7 +16,7 @@
     background: #ffffff;
     border-radius: 18px;
     width: 92%;
-    max-width: 500px;
+    max-width: 480px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
     overflow: hidden;
     animation: modalPop 0.18s ease-out;
@@ -39,7 +39,7 @@
     gap: 10px;
 }
 .webcam-header-logo {
-    height: 34px;
+    height: 36px;
     width: auto;
     object-fit: contain;
     background: #ffffff;
@@ -83,7 +83,7 @@
 
 .webcam-modal-body { padding: 16px 18px 18px; }
 
-/* Clean, super-lightweight camera preview (NO heavy filters/blur for max FPS) */
+/* Clean, super-lightweight camera preview (GPU-accelerated, NO lag) */
 .camera-preview-wrap {
     position: relative;
     width: 100%;
@@ -102,28 +102,17 @@
 }
 #cameraCanvas { display: none; }
 
-/* Subtle lightweight guide (NO 9999px shadow) */
+/* Subtle lightweight guide (NO heavy filters/tickers) */
 .camera-face-guide {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 50%;
+    width: 52%;
     aspect-ratio: 3/4;
-    border: 2px dashed rgba(255, 255, 255, 0.7);
+    border: 2px dashed rgba(255, 255, 255, 0.75);
     border-radius: 50%;
     pointer-events: none;
-}
-.camera-brand-watermark {
-    position: absolute;
-    top: 10px;
-    left: 12px;
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
 /* Captured photo preview */
@@ -155,18 +144,18 @@
     font-weight: 700;
 }
 
-/* Status bar */
+/* Status message */
 .camera-status {
-    padding: 8px 12px;
+    padding: 9px 12px;
     border-radius: 8px;
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
-    font-size: 0.82rem;
+    font-size: 0.83rem;
     color: #334155;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 .camera-status.error {
     background: #fef2f2;
@@ -186,7 +175,7 @@
 }
 .btn-capture {
     width: 100%;
-    padding: 12px;
+    padding: 13px;
     border: none;
     border-radius: 10px;
     background: linear-gradient(135deg, #1b2a4a 0%, #2d4a8a 100%);
@@ -198,11 +187,12 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: background 0.15s;
+    transition: transform 0.15s, background 0.15s;
     box-shadow: 0 4px 12px rgba(27, 42, 74, 0.2);
 }
 .btn-capture:hover:not(:disabled) {
     background: linear-gradient(135deg, #2d4a8a 0%, #1b2a4a 100%);
+    transform: translateY(-1px);
 }
 .btn-capture:disabled {
     opacity: 0.6;
@@ -211,7 +201,7 @@
 
 .btn-retake {
     flex: 1;
-    padding: 11px;
+    padding: 12px;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
     background: #ffffff;
@@ -219,45 +209,37 @@
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
+    transition: background 0.15s;
 }
 .btn-retake:hover { background: #f8fafc; }
 
 .btn-submit-punch {
     flex: 2;
-    padding: 11px;
+    padding: 12px;
     border: none;
     border-radius: 10px;
     font-weight: 700;
     font-size: 0.92rem;
     color: #ffffff;
     cursor: pointer;
+    transition: transform 0.15s;
 }
+.btn-submit-punch:hover { transform: translateY(-1px); }
 .btn-submit-punch.in {
     background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    box-shadow: 0 4px 12px rgba(5,150,105,0.25);
 }
 .btn-submit-punch.out {
     background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    box-shadow: 0 4px 12px rgba(37,99,235,0.25);
+}
+.btn-submit-punch:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
-.quick-options-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    justify-content: center;
-}
-.btn-quick-opt {
-    font-size: 0.76rem;
-    padding: 5px 12px;
-    border-radius: 6px;
-    background: #f8fafc;
-    border: 1px solid #cbd5e1;
-    color: #475569;
-    font-weight: 600;
-    cursor: pointer;
-}
-.btn-quick-opt:hover { background: #e2e8f0; }
-
-/* Photo Lightbox */
+/* Lightbox */
 .photo-lightbox-overlay {
     display: none;
     position: fixed;
@@ -304,11 +286,10 @@
         </div>
         <div class="webcam-modal-body">
 
-            <!-- Clean, lightweight camera preview (Smooth 30fps) -->
+            <!-- Clean, lightweight camera preview (30fps native stream) -->
             <div class="camera-preview-wrap" id="cameraPreviewWrap">
                 <video id="cameraVideo" autoplay playsinline muted></video>
                 <canvas id="cameraCanvas"></canvas>
-                <div class="camera-brand-watermark">TAASCOR ATS VERIFIED</div>
                 <div class="camera-face-guide"></div>
             </div>
 
@@ -318,28 +299,17 @@
                 <div class="photo-confirmed-badge">✓ Photo Captured</div>
             </div>
 
-            <!-- Live Status Message -->
+            <!-- Camera Status Message -->
             <div class="camera-status" id="cameraStatus">
                 <span>🎥</span>
-                <span>Position your face and tap Capture</span>
+                <span>Live Camera Active — Align face within guide and tap Capture</span>
             </div>
 
-            <!-- Capture Button Step -->
+            <!-- Single Capture Button Step (Standard & Clean) -->
             <div id="captureStepWrap">
                 <div class="webcam-btn-row" id="captureRow">
                     <button type="button" class="btn-capture" id="captureBtn" onclick="capturePhoto()">
                         📸 Capture Photo
-                    </button>
-                </div>
-                <div class="quick-options-row">
-                    <button type="button" class="btn-quick-opt" onclick="generateSimulatedSnapshot()" title="Instant capture">
-                        ⚡ Instant Snap
-                    </button>
-                    <button type="button" class="btn-quick-opt" onclick="document.getElementById('deviceCameraFallbackInput').click()">
-                        📱 Device Camera
-                    </button>
-                    <button type="button" class="btn-quick-opt" onclick="startWebcamCamera()">
-                        🔄 Refresh Camera
                     </button>
                 </div>
             </div>
@@ -354,10 +324,7 @@
                 </button>
             </div>
 
-            <!-- Hidden File Input for Device Camera -->
-            <input type="file" id="deviceCameraFallbackInput" accept="image/*" capture="user" style="display: none;" onchange="handleDevicePhotoInput(this)">
-
-            <!-- Hidden Submit Forms (GPS is sent silently for Head HR) -->
+            <!-- Hidden Submit Forms (Silent GPS sent to Head HR only) -->
             <form id="sharedTimeInForm" action="/coordinator-attendance/time-in" method="POST" style="display:none;">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <input type="hidden" name="return_to" id="timeInReturnTo" value="">
@@ -380,7 +347,7 @@
     </div>
 </div>
 
-<!-- PHOTO LIGHTBOX MODAL -->
+<!-- PHOTO LIGHTBOX -->
 <div class="photo-lightbox-overlay" id="photoLightbox" onclick="closeLightbox()">
     <button type="button" class="photo-lightbox-close" onclick="closeLightbox()">✕</button>
     <img class="photo-lightbox-img" id="lightboxImg" src="" alt="Punch photo">
@@ -405,7 +372,7 @@ let silentGps = {
     address: null
 };
 
-// ── SILENT BACKGROUND LOCATION CAPTURE (NO UI / NO LAG) ──
+// ── SILENT BACKGROUND LOCATION (No lag, invisible to coordinator/employee) ──
 function captureSilentLocation() {
     if (!navigator.geolocation) return;
     try {
@@ -415,31 +382,22 @@ function captureSilentLocation() {
                 silentGps.lng = pos.coords.longitude.toFixed(6);
                 silentGps.accuracy = Math.round(pos.coords.accuracy);
 
-                // Quiet reverse geocode for Head HR
-                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=18&addressdetails=1`;
-                fetch(url, { headers: { 'Accept': 'application/json' } })
+                // Fetch address silently in background for Head HR
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=18`;
+                fetch(url)
                     .then(r => r.json())
                     .then(data => {
-                        if (data && data.address) {
-                            const a = data.address;
-                            const road = a.road || a.pedestrian || a.suburb || '';
-                            const city = a.city || a.town || a.municipality || a.city_district || '';
-                            const state = a.state || a.province || a.region || '';
-                            const parts = [road, city, state].filter(Boolean);
-                            silentGps.address = parts.join(', ') || data.display_name.split(',').slice(0, 3).join(', ');
-                        } else if (data && data.display_name) {
-                            silentGps.address = data.display_name.split(',').slice(0, 3).join(', ');
+                        if (data && data.display_name) {
+                            const parts = data.display_name.split(',').map(s => s.trim()).filter(Boolean);
+                            silentGps.address = parts.slice(0, 3).join(', ');
                         }
                     })
-                    .catch(() => {
-                        silentGps.address = window.TAASCOR_DEFAULT_AREA || '';
-                    });
+                    .catch(() => {});
             },
-            function(err) {
-                console.warn('Silent location query:', err.message);
-                silentGps.address = window.TAASCOR_DEFAULT_AREA || '';
+            function() {
+                // Silently ignore errors - no disruption to staff
             },
-            { enableHighAccuracy: true, timeout: 7000, maximumAge: 30000 }
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
         );
     } catch (e) {}
 }
@@ -466,17 +424,17 @@ function getManilaDatetime() {
     return { dateStr, timeStr, dayOfWeek };
 }
 
-// ── TAASCOR BRANDED WATERMARK (Rendered onto saved photo for Head HR) ──
+// ── TAASCOR BRANDED WATERMARK (Drawn onto captured photo for Head HR) ──
 function drawTaascorWatermark(ctx, canvasWidth, canvasHeight) {
     const dt = getManilaDatetime();
     const locStr = silentGps.address || (silentGps.lat && silentGps.lng ? `${silentGps.lat}° N, ${silentGps.lng}° E` : window.TAASCOR_DEFAULT_AREA);
 
-    const barHeight = Math.max(78, Math.round(canvasHeight * 0.20));
+    const barHeight = Math.max(74, Math.round(canvasHeight * 0.18));
     const startY = canvasHeight - barHeight;
 
     ctx.save();
     // TAASCOR Navy Blue background
-    ctx.fillStyle = 'rgba(27, 42, 74, 0.92)';
+    ctx.fillStyle = 'rgba(27, 42, 74, 0.94)';
     ctx.fillRect(0, startY, canvasWidth, barHeight);
 
     // TAASCOR Gold Accent Line
@@ -511,7 +469,7 @@ function drawTaascorWatermark(ctx, canvasWidth, canvasHeight) {
     ctx.fillStyle = '#fbbf24';
     ctx.fillText(`${dt.dateStr} (${dt.dayOfWeek})`, canvasWidth - leftMargin, lineY);
 
-    // Line 3: Location (For Head HR verification)
+    // Line 3: Location (Burnt into photo for Head HR verification)
     lineY += normalSize + 5;
     ctx.font = 'normal ' + (normalSize - 1) + 'px sans-serif';
     ctx.textAlign = 'left';
@@ -551,13 +509,13 @@ function closeWebcam() {
     activeCapturedDataUri = null;
 }
 
-// ── FAST, NON-BLOCKING CAMERA INITIALIZATION ──
-async function startWebcamCamera() {
+// ── FAST, NATIVE CAMERA INITIALIZATION (NO LAG / NO HANG) ──
+function startWebcamCamera() {
     const statusEl = document.getElementById('cameraStatus');
     const captureBtn = document.getElementById('captureBtn');
 
     statusEl.className = 'camera-status';
-    statusEl.innerHTML = '<span>⏳</span><span>Starting camera…</span>';
+    statusEl.innerHTML = '<span>⏳</span><span>Starting camera preview…</span>';
     captureBtn.disabled = true;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -565,40 +523,23 @@ async function startWebcamCamera() {
         return;
     }
 
+    // Stop any stale stream before requesting new one
     stopWebcamCamera();
 
-    function withTimeout(promise, ms) {
-        let timer;
-        const timeout = new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error('CAMERA_TIMEOUT')), ms);
-        });
-        return Promise.race([
-            promise.then(res => { clearTimeout(timer); return res; }),
-            timeout
-        ]);
-    }
-
-    let stream = null;
-
-    // Fast Strategy 1: Desktop standard generic video
-    try {
-        stream = await withTimeout(navigator.mediaDevices.getUserMedia({ video: true, audio: false }), 3000);
-    } catch (e1) {
-        // Strategy 2: Mobile facingMode
-        try {
-            stream = await withTimeout(navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-                audio: false
-            }), 3000);
-        } catch (e2) {
-            handleCameraFailure('Camera device unavailable or permission denied. Tap Instant Snap below.');
-            return;
-        }
-    }
-
-    if (stream) {
-        handleStreamSuccess(stream);
-    }
+    // Try standard selfie camera first, fallback cleanly to default video
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+    })
+    .then(stream => handleStreamSuccess(stream))
+    .catch(err1 => {
+        // Fallback to generic video
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(stream => handleStreamSuccess(stream))
+            .catch(err2 => {
+                handleCameraFailure('Camera not available or access denied. Please allow camera permissions in your browser.');
+            });
+    });
 }
 
 function handleStreamSuccess(stream) {
@@ -607,18 +548,14 @@ function handleStreamSuccess(stream) {
     if (!video) return;
 
     video.srcObject = stream;
-    video.onloadedmetadata = function() {
-        video.play().catch(e => console.warn('Play error:', e));
-    };
-    video.play().catch(() => {});
+    video.play().catch(e => console.warn('Video play:', e));
 
     const statusEl = document.getElementById('cameraStatus');
     statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>🎥</span><span>Camera Ready — Position face and tap Capture</span>';
+    statusEl.innerHTML = '<span>🎥</span><span>Live Camera Active — Align face within guide and tap Capture</span>';
 
     const captureBtn = document.getElementById('captureBtn');
     captureBtn.disabled = false;
-    captureBtn.style.display = 'flex';
 }
 
 function handleCameraFailure(msg) {
@@ -627,9 +564,7 @@ function handleCameraFailure(msg) {
     statusEl.innerHTML = `<span>⚠️</span> <span>${msg}</span>`;
 
     const captureBtn = document.getElementById('captureBtn');
-    captureBtn.disabled = false;
-    captureBtn.onclick = function() { generateSimulatedSnapshot(); };
-    captureBtn.innerHTML = '⚡ Instant Snap';
+    captureBtn.disabled = true;
 }
 
 function stopWebcamCamera() {
@@ -645,24 +580,24 @@ function capturePhoto() {
     const video = document.getElementById('cameraVideo');
     const canvas = document.getElementById('cameraCanvas');
 
-    if (!video || !video.videoWidth || !activeWebcamStream) {
-        generateSimulatedSnapshot();
-        return;
-    }
+    if (!video || !activeWebcamStream) return;
 
-    canvas.width  = video.videoWidth  || 640;
-    canvas.height = video.videoHeight || 480;
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 480;
+
+    canvas.width = w;
+    canvas.height = h;
 
     const ctx = canvas.getContext('2d');
 
-    // Mirror image so preview matches reality
+    // Mirror image so preview matches user's selfie view
     ctx.save();
     ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, -w, 0, w, h);
     ctx.restore();
 
-    // Burn TAASCOR verified watermark onto photo
-    drawTaascorWatermark(ctx, canvas.width, canvas.height);
+    // Burn TAASCOR verified watermark onto photo for Head HR
+    drawTaascorWatermark(ctx, w, h);
 
     activeCapturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
 
@@ -686,7 +621,7 @@ function retakePhoto() {
     } else {
         const statusEl = document.getElementById('cameraStatus');
         statusEl.className = 'camera-status success';
-        statusEl.innerHTML = '<span>🎥</span><span>Camera Ready — Position face and tap Capture</span>';
+        statusEl.innerHTML = '<span>🎥</span><span>Live Camera Active — Align face within guide and tap Capture</span>';
     }
 }
 
@@ -697,82 +632,7 @@ function resetWebcamToCapture() {
     document.getElementById('captureRow').style.display = 'flex';
     document.getElementById('confirmRow').style.display = 'none';
     const captureBtn = document.getElementById('captureBtn');
-    captureBtn.disabled = false;
-    captureBtn.onclick = capturePhoto;
-    captureBtn.innerHTML = '📸 Capture Photo';
-}
-
-// Fallback for device camera input
-function handleDevicePhotoInput(input) {
-    if (!input.files || !input.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-            const canvas = document.getElementById('cameraCanvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            drawTaascorWatermark(ctx, canvas.width, canvas.height);
-            activeCapturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
-
-            document.getElementById('capturedPhotoPreview').src = activeCapturedDataUri;
-            document.getElementById('capturedPhotoWrap').style.display = 'block';
-            document.getElementById('cameraPreviewWrap').style.display = 'none';
-
-            document.getElementById('captureStepWrap').style.display = 'none';
-            document.getElementById('confirmRow').style.display = 'flex';
-
-            const statusEl = document.getElementById('cameraStatus');
-            statusEl.className = 'camera-status success';
-            statusEl.innerHTML = '<span>✅</span><span>Photo ready! Confirm to save punch.</span>';
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(input.files[0]);
-}
-
-// Simulated snapshot fallback
-function generateSimulatedSnapshot() {
-    const canvas = document.getElementById('cameraCanvas');
-    canvas.width = 640;
-    canvas.height = 480;
-    const ctx = canvas.getContext('2d');
-
-    const grad = ctx.createLinearGradient(0, 0, 640, 480);
-    grad.addColorStop(0, '#1b2a4a');
-    grad.addColorStop(1, '#0f172a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 640, 480);
-
-    ctx.fillStyle = '#334155';
-    ctx.beginPath();
-    ctx.arc(320, 180, 75, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(320, 410, 160, Math.PI, 0);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('TAASCOR VERIFIED PUNCH', 320, 270);
-
-    drawTaascorWatermark(ctx, 640, 480);
-
-    activeCapturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
-
-    document.getElementById('capturedPhotoPreview').src = activeCapturedDataUri;
-    document.getElementById('capturedPhotoWrap').style.display = 'block';
-    document.getElementById('cameraPreviewWrap').style.display = 'none';
-    document.getElementById('captureStepWrap').style.display = 'none';
-    document.getElementById('confirmRow').style.display = 'flex';
-
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>✅</span><span>Verification photo generated! Click Confirm to record punch.</span>';
+    captureBtn.disabled = !activeWebcamStream;
 }
 
 function submitPunch() {
