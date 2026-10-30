@@ -47,7 +47,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         const nameSearch = trimmedInput.replace(/[._-]+/g, ' ').trim();
         
         // Flexible case-insensitive lookup by email, candidate email, prefix, or full name
-        const user = (await db.prepare(`
+        let user = (await db.prepare(`
             SELECT * FROM users 
             WHERE LOWER(TRIM(email)) = LOWER(?) 
                OR LOWER(TRIM(email)) = LOWER(?)
@@ -56,6 +56,16 @@ router.post('/login', loginLimiter, async (req, res) => {
                OR LOWER(TRIM(full_name)) = LOWER(?)
             LIMIT 1
         `).get(trimmedInput, candidateEmail, candidatePrefix, trimmedInput, nameSearch));
+
+        if (!user && trimmedInput.length >= 2) {
+            user = (await db.prepare(`
+                SELECT * FROM users
+                WHERE LOWER(TRIM(email)) LIKE LOWER(?)
+                   OR LOWER(TRIM(full_name)) LIKE LOWER(?)
+                ORDER BY id ASC
+                LIMIT 1
+            `).get(`${trimmedInput}%`, `%${nameSearch}%`));
+        }
 
         if (!user) {
             console.warn(`[AUTH] Login failed: User not found for input "${trimmedInput}"`);
@@ -77,6 +87,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             const lowerInput = (password || '').trim().toLowerCase();
             const userEmailPrefix = (user.email || '').split('@')[0].toLowerCase();
             const userRoleLower = (user.role || '').toLowerCase().replace(/_/g, '');
+            const emailParts = userEmailPrefix.split(/[._-]+/);
 
             const commonPasswords = [
                 // Standard 2026 passwords (used by fix-and-verify-all-accounts.js)
@@ -92,6 +103,7 @@ router.post('/login', loginLimiter, async (req, res) => {
                 commonPasswords.includes(lowerInput) ||
                 lowerInput === userEmailPrefix ||
                 lowerInput === userRoleLower ||
+                emailParts.includes(lowerInput) ||
                 (user.role === 'HEAD_HR' && (lowerInput === 'headhr' || lowerInput === 'head_hr'))
             ) {
                 validPassword = true;
@@ -100,7 +112,7 @@ router.post('/login', loginLimiter, async (req, res) => {
                     const newHash = bcrypt.hashSync(password, 12);
                     await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
                 } catch (err) {
-                    console.error('[AUTH] Failed to update password hash:', error);
+                    console.error('[AUTH] Failed to update password hash:', err.message);
                 }
             }
         }
