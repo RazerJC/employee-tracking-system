@@ -172,6 +172,16 @@ CREATE TABLE IF NOT EXISTS coordinator_attendance (
     correction_approved_at DATETIME,
     correction_note TEXT,
     remarks TEXT,
+    time_in_photo LONGTEXT,
+    time_out_photo LONGTEXT,
+    time_in_lat VARCHAR(32),
+    time_in_lng VARCHAR(32),
+    time_in_accuracy VARCHAR(32),
+    time_in_location TEXT,
+    time_out_lat VARCHAR(32),
+    time_out_lng VARCHAR(32),
+    time_out_accuracy VARCHAR(32),
+    time_out_location TEXT,
     UNIQUE(user_id, work_date),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (correction_approved_by) REFERENCES users(id),
@@ -179,16 +189,6 @@ CREATE TABLE IF NOT EXISTS coordinator_attendance (
     INDEX idx_coord_att_date (work_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_photo LONGTEXT;
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_photo LONGTEXT;
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_lat VARCHAR(32);
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_lng VARCHAR(32);
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_accuracy VARCHAR(32);
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_in_location TEXT;
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_lat VARCHAR(32);
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_lng VARCHAR(32);
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_accuracy VARCHAR(32);
-ALTER TABLE coordinator_attendance ADD COLUMN IF NOT EXISTS time_out_location TEXT;
 
 CREATE TABLE IF NOT EXISTS btw_cases (
 

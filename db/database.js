@@ -81,10 +81,10 @@ const database = {
     async exec(sql) {
         return (transactions.getStore() || getPool()).query(sql);
     },
-    transaction(fn) {
+    transaction(fn, providedConnection) {
         return async (...args) => {
             if (transactions.getStore()) return fn(...args);
-            const connection = await getPool().getConnection();
+            const connection = providedConnection || await getPool().getConnection();
             try {
                 await connection.beginTransaction();
                 const result = await transactions.run(connection, () => fn(...args));
@@ -94,7 +94,7 @@ const database = {
                 await connection.rollback();
                 throw error;
             } finally {
-                connection.release();
+                if (!providedConnection) connection.release();
             }
         };
     }
@@ -105,9 +105,30 @@ function getDb() {
 }
 
 async function initializeDb() {
-    // Ensure pool is connected
-    const p = getPool();
-    await p.query('SELECT 1');
+    const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+    const connection = await getPool().getConnection();
+    const lockName = `taascor-schema-${process.env.DB_NAME}`.slice(0, 64);
+    try {
+        const [[lock]] = await connection.query('SELECT GET_LOCK(?, 30) AS acquired', [lockName]);
+        if (lock.acquired !== 1) throw new Error('Could not acquire the schema initialization lock.');
+        for (const statement of schema.split(';').map(sql => sql.trim()).filter(Boolean)) {
+            await connection.query(statement);
+        }
+        const [columns] = await connection.query('SHOW COLUMNS FROM coordinator_attendance');
+        const existing = new Set(columns.map(column => column.Field));
+        const cameraColumns = schema.matchAll(/^    (time_(?:in|out)_(?:photo|lat|lng|accuracy|location)) ([^,]+),$/gm);
+        for (const [, name, type] of cameraColumns) {
+            if (!existing.has(name)) {
+                await connection.query(`ALTER TABLE coordinator_attendance ADD COLUMN \`${name}\` ${type}`);
+            }
+        }
+    } finally {
+        try {
+            await connection.query('SELECT RELEASE_LOCK(?)', [lockName]);
+        } finally {
+            connection.release();
+        }
+    }
     return database;
 }
 

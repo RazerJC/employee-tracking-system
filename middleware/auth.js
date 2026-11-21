@@ -1,4 +1,5 @@
 // Authentication middleware
+const { requireArea } = require('./area-guard');
 
 async function requireAuth(req, res, next) {
     if (!req.session.user) {
@@ -9,18 +10,20 @@ async function requireAuth(req, res, next) {
     // Check if user is still active
     const { getDb } = require('../db/database');
     const db = getDb();
-    const user = (await db.prepare('SELECT status, role FROM users WHERE id = ?').get(req.session.user.id));
+    const user = (await db.prepare('SELECT status, role, must_change_password FROM users WHERE id = ?').get(req.session.user.id));
     
     if (!user || user.status !== 'active') {
         req.session.destroy();
         return res.redirect('/login?suspended=1');
     }
     
+    if (user.must_change_password) return res.redirect('/change-password');
+
     // Update session role in case admin changed it
     req.session.user.role = user.role;
     res.locals.user = req.session.user;
     
-    next();
+    return requireArea(req, res, next);
 }
 
 function requireRole(...roles) {

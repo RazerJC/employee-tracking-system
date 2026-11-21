@@ -14,23 +14,8 @@ async function attachArea(req, res, next) {
     if (!req.session.user) return next();
     
     if (req.session.user.role === 'COORDINATOR') {
-        let areaId = (await getCoordinatorAreaId(req.session.user.id));
+        const areaId = await getCoordinatorAreaId(req.session.user.id);
         const db = getDb();
-
-        if (!areaId) {
-            try {
-                const firstArea = (await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get());
-                if (firstArea) {
-                    await db.prepare(`
-                        INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                        VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Auto-assigned default warehouse')
-                    `).run(req.session.user.id, firstArea.id, req.session.user.id);
-                    areaId = firstArea.id;
-                }
-            } catch (e) {
-                console.error('[AREA-GUARD] Error assigning default area:', e.message);
-            }
-        }
 
         req.userAreaId = areaId;
         res.locals.userAreaId = areaId;
@@ -51,15 +36,12 @@ async function attachArea(req, res, next) {
 
 // Middleware: require coordinator to have an assigned area
 async function requireArea(req, res, next) {
-    if (req.session.user && req.session.user.role === 'COORDINATOR') {
-        if (!req.userAreaId) {
-            const db = getDb();
-            const firstArea = (await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get());
-            if (firstArea) {
-                req.userAreaId = firstArea.id;
-                res.locals.userAreaId = firstArea.id;
-            }
-        }
+    if (req.session.user?.role === 'COORDINATOR' && !req.userAreaId) {
+        return res.status(403).render('error', {
+            title: 'Warehouse Assignment Required',
+            message: 'Ask HR or your administrator to assign your warehouse.',
+            code: 403
+        });
     }
     next();
 }

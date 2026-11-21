@@ -330,7 +330,7 @@ router.post('/:id/decision', requireAuth, async (req, res) => {
             trimmedArticle,
             hr_remarks.trim()
         );
-    });
+    })();
 
     // Notify coordinator immediately
     (await createNotification(

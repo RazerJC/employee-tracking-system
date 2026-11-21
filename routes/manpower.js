@@ -462,8 +462,7 @@ router.post('/:id/claim', requireAuth, async (req,res) => {
  if(req.session.user.role !== 'HR') return res.status(403).render('error',{title:'Access Denied',message:'Only HR can accept a manpower request.',code:403});
  const db=getDb(), id=Number(req.params.id)||0;
  const claimed=await db.transaction(async()=>{
-  // SQLite does not support FOR UPDATE - just a regular SELECT
-  const request=await db.prepare('SELECT id,status,requested_by FROM manpower_requests WHERE id=?').get(id);
+  const request=await db.prepare('SELECT id,status,requested_by FROM manpower_requests WHERE id=? FOR UPDATE').get(id);
   if(!request || ['filled','declined','cancelled'].includes(request.status)) return false;
   if(await db.prepare('SELECT request_id FROM manpower_request_handlers WHERE request_id=?').get(id)) return false;
   await db.prepare('INSERT INTO manpower_request_handlers (request_id,hr_id) VALUES (?,?)').run(id,req.session.user.id);

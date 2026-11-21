@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { getDb } = require('../db/database');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email');
+const { getDb, runTransaction } = require('../db/database');
+const { sendPasswordResetEmail } = require('../services/email');
 const { loginLimiter } = require('../middleware/rate-limit');
 const { logAction } = require('../services/audit');
-const { notifyHR, notifyRole } = require('../services/notification');
+const { notifyRole } = require('../services/notification');
 const { isExpired } = require('../services/time');
 router.get('/login', async (req, res) => {
     if (req.session.user) {
@@ -32,188 +32,66 @@ router.get('/login', async (req, res) => {
 
 // POST /login
 router.post('/login', loginLimiter, async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const db = getDb();
-
-        if (!email || !password) {
-            req.flash('error', 'Mali ang username o password. Pakilagay pareho ang username at password.');
-            return res.redirect('/login');
+    const { email, password } = req.body;
+    const username = typeof email === 'string' ? email.trim() : '';
+    const db = getDb();
+    let user;
+    if (username && typeof password === 'string' && password) {
+        user = await db.prepare('SELECT * FROM users WHERE email = ?').get(username);
+        if (!user && !username.includes('@')) {
+            user = await db.prepare('SELECT * FROM users WHERE email = ?').get(`${username}@taascor.com`);
         }
+    }
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+        req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+        return res.redirect('/login');
+    }
 
-        const trimmedInput = (email || '').trim();
-        const candidateEmail = trimmedInput.includes('@') ? trimmedInput : `${trimmedInput}@taascor.com`;
-        const candidatePrefix = trimmedInput.includes('@') ? trimmedInput.split('@')[0] : trimmedInput;
-        const nameSearch = trimmedInput.replace(/[._-]+/g, ' ').trim();
-        
-        // Flexible case-insensitive lookup by email, candidate email, prefix, or full name
-        let user = (await db.prepare(`
-            SELECT * FROM users 
-            WHERE LOWER(TRIM(email)) = LOWER(?) 
-               OR LOWER(TRIM(email)) = LOWER(?)
-               OR LOWER(TRIM(email)) = LOWER(?)
-               OR LOWER(TRIM(full_name)) = LOWER(?)
-               OR LOWER(TRIM(full_name)) = LOWER(?)
-            LIMIT 1
-        `).get(trimmedInput, candidateEmail, candidatePrefix, trimmedInput, nameSearch));
+    await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+    // Check account status
+    if (user.status === 'suspended') {
+        req.flash('error', 'Naka-suspend ang account na ito. Mangyaring makipag-ugnayan sa HR o Administrator.');
+        return res.redirect('/login');
+    }
 
-        if (!user && trimmedInput.length >= 2) {
-            const inputWords = candidatePrefix.split(/[._-]+/).filter(w => w.length >= 3);
-            for (const word of inputWords) {
-                user = (await db.prepare(`
-                    SELECT * FROM users
-                    WHERE LOWER(TRIM(email)) LIKE LOWER(?)
-                       OR LOWER(TRIM(full_name)) LIKE LOWER(?)
-                    ORDER BY id ASC
-                    LIMIT 1
-                `).get(`%${word}%`, `%${word}%`));
-                if (user) break;
-            }
-        }
+    if (user.status === 'rejected') {
+        req.flash('error', `Hindi naaprubahan ang registration: ${user.rejection_remarks || 'Not specified'}`);
+        return res.redirect('/login');
+    }
 
-        if (!user && trimmedInput.length >= 2) {
-            user = (await db.prepare(`
-                SELECT * FROM users
-                WHERE LOWER(TRIM(email)) LIKE LOWER(?)
-                   OR LOWER(TRIM(full_name)) LIKE LOWER(?)
-                ORDER BY id ASC
-                LIMIT 1
-            `).get(`${trimmedInput}%`, `%${nameSearch}%`));
-        }
+    // Account pending approval - redirect to /pending
+    if (user.status === 'pending') {
+        let approverRole = 'HR';
+        if (user.role === 'HR') approverRole = 'Head HR';
+        if (user.role === 'HEAD_HR') approverRole = 'Administrator';
 
-        if (!user) {
-            console.warn(`[AUTH] Login failed: User not found for input "${trimmedInput}"`);
-            req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
-            return res.redirect('/login');
-        }
-
-        // Flexible password check: bcrypt compare OR fallback common passwords for convenience
-        let validPassword = false;
-        try {
-            if (user.password_hash) {
-                validPassword = bcrypt.compareSync(password, user.password_hash);
-            }
-        } catch (e) {
-            console.error('[AUTH] bcrypt compare error:', e);
-        }
-
-        if (!validPassword) {
-            const lowerInput = (password || '').trim().toLowerCase();
-            const userEmailPrefix = (user.email || '').split('@')[0].toLowerCase();
-            const userRoleLower = (user.role || '').toLowerCase().replace(/_/g, '');
-            const emailParts = userEmailPrefix.split(/[._-]+/);
-
-            const commonPasswords = [
-                // Standard 2026 passwords (used by fix-and-verify-all-accounts.js)
-                'Taascor@2026', 'taascor@2026', 'taascor2026', 'taascor', 'taascor123', 'taascor123!',
-                'coordinator@2026', 'Coordinator@2026', 'coordinator', 'coordinator123!', 'coord123!',
-                'admin@2026', 'Admin@2026', 'admin', 'admin123!',
-                'headhr@2026', 'HeadHr@2026', 'headhr', 'head_hr', 'headhr123!',
-                'hr@2026', 'Hr@2026', 'hr', 'hr123!', 'hruser123!',
-                'phixc', 'phixc@2026', 'Phixc@2026', '12345678', 'password', 'pass123'
-            ];
-
-            if (
-                commonPasswords.includes(lowerInput) ||
-                lowerInput === userEmailPrefix ||
-                lowerInput === userRoleLower ||
-                emailParts.includes(lowerInput) ||
-                (user.role === 'HEAD_HR' && (lowerInput === 'headhr' || lowerInput === 'head_hr'))
-            ) {
-                validPassword = true;
-                // Synchronize password in DB to the standard hash
-                try {
-                    const newHash = bcrypt.hashSync(password, 12);
-                    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
-                } catch (err) {
-                    console.error('[AUTH] Failed to update password hash:', err.message);
-                }
-            }
-        }
-
-        if (!validPassword) {
-            console.warn(`[AUTH] Login failed: Invalid password for user ${user.email}`);
-            req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
-            return res.redirect('/login');
-        }
-
-        // Check account status
-        if (user.status === 'suspended') {
-            req.flash('error', 'Naka-suspend ang account na ito. Mangyaring makipag-ugnayan sa HR o Administrator.');
-            return res.redirect('/login');
-        }
-
-        if (user.status === 'rejected') {
-            req.flash('error', `Hindi naaprubahan ang registration: ${user.rejection_remarks || 'Not specified'}`);
-            return res.redirect('/login');
-        }
-
-        // Account pending approval - redirect to /pending
-        if (user.status === 'pending') {
-            let approverRole = 'HR';
-            if (user.role === 'HR') approverRole = 'Head HR';
-            if (user.role === 'HEAD_HR') approverRole = 'Administrator';
-
-            req.session.user = {
-                id: user.id,
-                email: user.email,
-                full_name: user.full_name,
-                role: user.role,
-                status: 'pending'
-            };
-            req.flash('warning', `Naka-pending pa ang iyong account. Naghihintay ito ng approval mula sa ${approverRole}.`);
-            return res.redirect('/pending');
-        }
-
-        if (!user.email_verified || user.must_change_password) {
-            await db.prepare('UPDATE users SET email_verified = 1, must_change_password = 0 WHERE id = ?').run(user.id);
-            user.email_verified = 1;
-            user.must_change_password = 0;
-        }
-
-        // Ensure coordinator has an assigned area so they never face 403 Forbidden
-        if (user.role === 'COORDINATOR') {
-            try {
-                const hasArea = await db.prepare('SELECT id FROM coordinator_area_assignments WHERE user_id = ? AND is_current = 1').get(user.id);
-                if (!hasArea) {
-                    const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
-                    if (firstArea) {
-                        await db.prepare(`
-                            INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                            VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Auto-assigned on login')
-                        `).run(user.id, firstArea.id, user.id);
-                    }
-                }
-            } catch (e) {
-                console.error('[AUTH] Area auto-assignment error:', e.message);
-            }
-        }
-
-        // Update last login
-        (await db.prepare("UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?").run(user.id));
-
-        // Rotate session ID
-        await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
-
-        // Set user session
         req.session.user = {
             id: user.id,
             email: user.email,
             full_name: user.full_name,
             role: user.role,
-            status: 'active',
-            must_change_password: 0
+            status: 'pending'
         };
-
-        (await logAction(user.id, 'LOGIN', 'users', user.id, { email: user.email }, req.ip));
-
-        req.flash('success', `Welcome back, ${user.full_name}!`);
-        res.redirect('/dashboard');
-    } catch (err) {
-        console.error('[AUTH] Login error caught safely:', err);
-        req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
-        return res.redirect('/login');
+        req.flash('warning', `Naka-pending pa ang iyong account. Naghihintay ito ng approval mula sa ${approverRole}.`);
+        return res.redirect('/pending');
     }
+
+    await db.prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?').run(user.id);
+
+    // Set user session
+    req.session.user = {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        status: 'active',
+        must_change_password: user.must_change_password
+    };
+
+    (await logAction(user.id, 'LOGIN', 'users', user.id, { email: user.email }, req.ip));
+
+    req.flash('success', `Welcome back, ${user.full_name}!`);
+    res.redirect(user.must_change_password ? '/change-password' : '/dashboard');
 });
 
 // GET /register
@@ -267,31 +145,36 @@ router.post('/register', async (req, res) => {
 
     const hash = bcrypt.hashSync(password, 12);
 
-    // Register user with status = 'pending' awaiting role-specific approval
-    const result = (await db.prepare(`
-        INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'pending', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-    `).run(candidateEmail, hash, full_name.trim(), chosenRole));
-
-    const userId = result.lastInsertRowid;
-
     let targetAreaId = null;
-    if (chosenRole === 'COORDINATOR') {
-        targetAreaId = area_id ? parseInt(area_id) : null;
-        if (!targetAreaId) {
-            const firstArea = await db.prepare('SELECT id FROM areas WHERE is_active = 1 ORDER BY id ASC LIMIT 1').get();
-            if (firstArea) targetAreaId = firstArea.id;
+    if (chosenRole === 'COORDINATOR' && area_id) {
+        const area = await db.prepare('SELECT id FROM areas WHERE id = ? AND is_active = 1').get(Number(area_id) || null);
+        if (!area) {
+            req.flash('error', 'Please select an active warehouse.');
+            return res.redirect('/register');
         }
-
-        if (targetAreaId) {
-            await db.prepare(`
-                INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Assigned upon registration')
-            `).run(userId, targetAreaId, userId);
-        }
+        targetAreaId = area.id;
     }
 
-    (await logAction(userId, 'REGISTER', 'users', userId, { email: candidateEmail, role: chosenRole, area_id: targetAreaId }, req.ip));
+    try {
+        await runTransaction(async () => {
+            const result = await db.prepare(`
+                INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'pending', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+            `).run(candidateEmail, hash, full_name.trim(), chosenRole);
+            const userId = result.lastInsertRowid;
+            if (targetAreaId) {
+                await db.prepare(`
+                    INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
+                    VALUES (?, ?, ?, UTC_TIMESTAMP(), 1, 'Requested upon registration')
+                `).run(userId, targetAreaId, userId);
+            }
+            await logAction(userId, 'REGISTER', 'users', userId, { email: candidateEmail, role: chosenRole, area_id: targetAreaId }, req.ip);
+        });
+    } catch (error) {
+        if (error.code !== 'ER_DUP_ENTRY') throw error;
+        req.flash('error', 'An account with this email address already exists. Please log in.');
+        return res.redirect('/login');
+    }
 
     // Role-specific notifications and messages
     if (chosenRole === 'COORDINATOR') {
@@ -350,6 +233,11 @@ router.get('/pending', async (req, res) => {
     const db = getDb();
     const user = (await db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id));
     
+    if (!user) {
+        req.session.destroy();
+        return res.redirect('/login');
+    }
+
     if (user.status === 'active') {
         req.session.user.status = 'active';
         return res.redirect('/dashboard');
@@ -371,45 +259,19 @@ router.get('/forgot-password', (req, res) => {
 
 // POST /forgot-password
 router.post('/forgot-password', async (req, res) => {
-    const rawInput = (req.body.email || '').trim();
-    if (!rawInput) {
-        req.flash('error', 'Please enter your username or email.');
-        return res.redirect('/forgot-password');
-    }
-
-    const candidateEmail = rawInput.includes('@') ? rawInput : `${rawInput}@taascor.com`;
+    const username = typeof req.body.email === 'string' ? req.body.email.trim() : '';
     const db = getDb();
-    const user = (await db.prepare(`
-        SELECT * FROM users 
-        WHERE LOWER(TRIM(email)) = LOWER(?) 
-           OR LOWER(TRIM(email)) = LOWER(?) 
-           OR LOWER(TRIM(full_name)) = LOWER(?) 
-        LIMIT 1
-    `).get(rawInput, candidateEmail, rawInput));
+    const email = username.includes('@') ? username : `${username}@taascor.com`;
+    const user = await db.prepare("SELECT id, email FROM users WHERE email = ? AND status = 'active' AND email_verified = 1").get(email);
 
-    if (!user) {
-        req.flash('error', `No account found with username or email: "${rawInput}"`);
-        return res.redirect('/forgot-password');
+    if (user && (process.env.NODE_ENV !== 'production' || process.env.SMTP_HOST)) {
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        await db.prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
+        await sendPasswordResetEmail(user.email, token);
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-    (await db.prepare(`
-        INSERT INTO password_reset_tokens (user_id, token, expires_at)
-        VALUES (?, ?, ?)
-    `).run(user.id, token, expiresAt));
-
-    await sendPasswordResetEmail(user.email, token);
-
-    // If SMTP is not actively configured with host & user, take user directly to reset form
-    const isSmtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER);
-    if (!isSmtpConfigured) {
-        req.flash('success', `Reset request received for ${user.email}. Enter your new password below.`);
-        return res.redirect(`/reset-password?token=${token}`);
-    }
-
-    req.flash('success', `A password reset link has been sent to ${user.email}.`);
+    req.flash('success', 'If the account is eligible, a password reset link will be sent by email.');
     res.redirect('/login');
 });
 
@@ -439,27 +301,29 @@ router.get('/reset-password', async (req, res) => {
 // POST /reset-password
 router.post('/reset-password', async (req, res) => {
     const { token, password, confirm_password } = req.body;
-    if (!password || password !== confirm_password) {
+    if (typeof password !== 'string' || password !== confirm_password) {
         req.flash('error', 'Passwords do not match.');
-        return res.redirect(`/reset-password?token=${token}`);
+        return res.redirect(`/reset-password?token=${encodeURIComponent(token || '')}`);
     }
 
     if (password.length < 8) {
         req.flash('error', 'Password must be at least 8 characters long.');
-        return res.redirect(`/reset-password?token=${token}`);
+        return res.redirect(`/reset-password?token=${encodeURIComponent(token || '')}`);
     }
 
     const db = getDb();
-    const row = (await db.prepare('SELECT * FROM password_reset_tokens WHERE token = ? AND used_at IS NULL').get(token));
-
-    if (!row || isExpired(row.expires_at)) {
+    const changed = await runTransaction(async () => {
+        const row = await db.prepare('SELECT * FROM password_reset_tokens WHERE token = ? AND used_at IS NULL FOR UPDATE').get(token);
+        if (!row || isExpired(row.expires_at)) return false;
+        const hash = await bcrypt.hash(password, 12);
+        const result = await db.prepare("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = UTC_TIMESTAMP() WHERE id = ? AND status = 'active' AND email_verified = 1").run(hash, row.user_id);
+        await db.prepare('UPDATE password_reset_tokens SET used_at = UTC_TIMESTAMP() WHERE id = ?').run(row.id);
+        return result.changes > 0;
+    });
+    if (!changed) {
         req.flash('error', 'Reset link expired or invalid.');
         return res.redirect('/login');
     }
-
-    const hash = bcrypt.hashSync(password, 12);
-    (await db.prepare("UPDATE users SET password_hash = ?, status = 'active', email_verified = 1, must_change_password = 0, updated_at = UTC_TIMESTAMP() WHERE id = ?").run(hash, row.user_id));
-    (await db.prepare("UPDATE password_reset_tokens SET used_at = UTC_TIMESTAMP() WHERE id = ?").run(row.id));
 
     req.flash('success', 'Password reset successfully. You can now log in with your new password.');
     res.redirect('/login');
@@ -489,7 +353,7 @@ router.post('/change-password', async (req, res) => {
     const db = getDb();
     const user = (await db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id));
 
-    if (!bcrypt.compareSync(current_password, user.password_hash)) {
+    if (!user || user.status !== 'active' || typeof current_password !== 'string' || !(await bcrypt.compare(current_password, user.password_hash))) {
         req.flash('error', 'Current password is incorrect.');
         return res.redirect('/change-password');
     }

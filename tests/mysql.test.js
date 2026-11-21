@@ -24,7 +24,7 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
     await control.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     Object.assign(process.env, {
         DB_HOST: options.host, DB_PORT: String(options.port), DB_USER: options.user,
-        DB_PASSWORD: options.password, DB_NAME: name, NODE_ENV: 'test',
+        DB_PASSWORD: options.password, DB_NAME: name, DB_SSL: 'false', NODE_ENV: 'test',
         SESSION_SECRET: randomUUID() + randomUUID(),
         ADMIN_EMAIL: 'admin@taascor.com', ADMIN_PASSWORD: randomUUID() + 'Aa1!'
     });
@@ -104,6 +104,26 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             const result=await request('/login',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({email,password,_csrf:token}).toString()});
             assert.equal(result.response.status,302);
         }
+        await t.test('login rejects shared passwords and requires the bootstrap admin to change theirs', async () => {
+            await login(process.env.ADMIN_EMAIL, 'password');
+            assert.equal((await request('/dashboard')).response.headers.get('location'), '/login');
+            await login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
+            assert.equal((await request('/dashboard')).response.headers.get('location'), '/change-password');
+            const page = await request('/change-password');
+            const token = page.text.match(/name="_csrf"\s+value="([^"]+)"/)[1];
+            const newPassword = randomUUID() + 'Aa1!';
+            const result = await request('/change-password', {
+                method: 'POST',
+                headers: { 'content-type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    _csrf: token, current_password: process.env.ADMIN_PASSWORD,
+                    new_password: newPassword, confirm_password: newPassword
+                }).toString()
+            });
+            assert.equal(result.response.status, 302);
+            assert.equal((await request('/dashboard')).response.status, 200);
+            process.env.ADMIN_PASSWORD = newPassword;
+        });
         await t.test('admin pages and report export render with awaited query results', async () => {
             await login(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD);
             for(const url of ['/dashboard','/employees','/schedules','/attendance','/btw','/concerns','/manpower','/departments','/notifications','/admin/users','/admin/staff/2','/admin/areas','/admin/positions','/admin/audit-logs','/reports','/api/notifications/latest']) {
@@ -162,13 +182,23 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             }
         });
         await t.test('HR attendance and manpower acceptance are recorded and protected', async () => {
+            const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5xkAAAAASUVORK5CYII=';
             assert.equal((await request('/admin/staff/2')).response.status,403);
-            assert.equal((await postForm('/coordinator-attendance/time-in',{})).response.status,302);
+            assert.equal((await postForm('/coordinator-attendance/time-in',{time_in_photo:photo,lat:'14.123456',lng:'121.654321',accuracy:'9',location_address:'14.123456, 121.654321'})).response.status,302);
             const hr=await db.prepare("SELECT id FROM users WHERE email='hr.santos@taascor.com'").get();
             const record=await db.prepare('SELECT * FROM coordinator_attendance WHERE user_id=? ORDER BY id DESC LIMIT 1').get(hr.id);
             assert.ok(record.time_in);
-            await postForm('/coordinator-attendance/time-out',{});
-            assert.ok((await db.prepare('SELECT time_out FROM coordinator_attendance WHERE id=?').get(record.id)).time_out);
+            assert.equal(record.time_in_photo,photo);
+            assert.equal(record.time_in_lat,'14.123456');
+            assert.equal(record.time_in_lng,'121.654321');
+            assert.equal(record.time_in_accuracy,'9');
+            await postForm('/coordinator-attendance/time-out',{time_out_photo:photo,lat:'14.123460',lng:'121.654325',accuracy:'12'});
+            const completed = await db.prepare('SELECT * FROM coordinator_attendance WHERE id=?').get(record.id);
+            assert.ok(completed.time_out);
+            assert.equal(completed.time_out_photo,photo);
+            assert.equal(completed.time_out_lat,'14.123460');
+            assert.equal(completed.time_out_lng,'121.654325');
+            assert.equal(completed.time_out_accuracy,'12');
             assert.equal((await postForm('/coordinator-attendance/approve-correction',{attendance_id:record.id,new_time_in:'07:00'})).response.status,403);
             const claim=await postForm('/manpower/1/claim',{});
             assert.equal(claim.response.status,302);
@@ -240,6 +270,103 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             }
             const other=await db.prepare('SELECT id FROM employees WHERE area_id=2 LIMIT 1').get();
             assert.equal((await request(`/employees/${other.id}`)).response.status,403);
+        });
+        await t.test('administrator can provision Head HR and Head HR can open the attendance monitor', async () => {
+            await login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
+            const password = randomUUID() + 'Aa1!';
+            const account = await postForm('/admin/create-user', {
+                email: 'integration.headhr@taascor.com', password,
+                full_name: 'Integration Head HR', role: 'HEAD_HR'
+            });
+            assert.equal(account.response.headers.get('location'), '/admin/users');
+            await login('integration.headhr@taascor.com', password);
+            assert.equal((await request('/coordinator-attendance')).response.status, 200);
+            assert.equal((await request('/admin/users')).response.status, 403);
+            assert.equal((await request('/health')).response.status, 200);
+        });
+        await t.test('localhost employee and department CRUD through forms and JSON endpoints', async () => {
+            await login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
+            const form = {name:'QA Department', area_id:'1', description:'QA department'};
+            assert.equal((await postForm('/departments', form)).response.status, 302);
+            const department = await db.prepare('SELECT id FROM departments WHERE name=?').get(form.name);
+            assert.ok(department);
+            assert.match((await request('/departments')).text, /QA Department/);
+            assert.equal((await postForm(`/departments/${department.id}/edit`, {...form, name:'QA Department Edited'})).response.status, 302);
+            assert.equal((await db.prepare('SELECT name FROM departments WHERE id=?').get(department.id)).name, 'QA Department Edited');
+
+            const employeeForm = {employee_id:'QA-CRUD-1', first_name:'QA', last_name:'Worker', area_id:'1', department_id:String(department.id), employment_start_date:'2026-09-16'};
+            assert.equal((await postForm('/employees', employeeForm)).response.status, 302);
+            const employee = await db.prepare('SELECT id FROM employees WHERE employee_id=?').get(employeeForm.employee_id);
+            assert.ok(employee);
+            assert.match((await request(`/employees/${employee.id}`)).text, /QA Worker/);
+            assert.equal((await postForm(`/employees/${employee.id}/edit`, {...employeeForm,last_name:'Worker Updated'})).response.status, 302);
+            assert.match((await request(`/employees/${employee.id}`)).text, /QA Worker Updated/);
+            assert.equal((await postForm('/api/departments/delete',{id:department.id})).response.status,400);
+            assert.equal((await postForm('/api/employees/delete',{id:employee.id})).response.status,200);
+            assert.equal((await db.prepare('SELECT status FROM employees WHERE id=?').get(employee.id)).status,'inactive');
+            assert.equal((await postForm('/api/employees/update-department',{employee_id:employee.id})).response.status,200);
+            assert.equal((await postForm(`/departments/${department.id}/delete`,{})).response.status,302);
+            assert.equal(await db.prepare('SELECT id FROM departments WHERE id=?').get(department.id),undefined);
+        });
+        await t.test('localhost incident, concern, manpower and notifications workflows', async () => {
+            await login('juan.delacruz@taascor.com','Coord123!');
+            const employee = await db.prepare('SELECT id FROM employees WHERE area_id=1 AND status=? ORDER BY id LIMIT 1').get('active');
+            const incident = await postForm('/incidents',{employee_id:employee.id,incident_date:'2026-09-16',category:'other',severity:'minor',title:'QA Incident',description:'Test incident'});
+            assert.match(incident.response.headers.get('location') || '', /^\/incidents\/\d+$/);
+            const incidentUrl = incident.response.headers.get('location');
+            assert.match((await request(incidentUrl)).text,/QA Incident/);
+            assert.equal((await postForm(incidentUrl+'/comment',{content:'QA timeline comment'})).response.status,302);
+            assert.match((await request(incidentUrl)).text,/QA timeline comment/);
+            const concern = await postForm('/concerns',{employee_id:employee.id,category:'other',description:'QA Concern'});
+            const concernUrl = concern.response.headers.get('location');
+            assert.match(concernUrl || '', /^\/concerns\/\d+$/);
+            assert.match((await request(concernUrl)).text,/QA Concern/);
+
+            const manpower = await postForm('/manpower',{deployment_date:'2026-09-18',reason:'QA Manpower','positions[p_1]':'2'});
+            const manpowerUrl = manpower.response.headers.get('location');
+            assert.match(manpowerUrl || '', /^\/manpower\/\d+$/);
+            assert.match((await request(manpowerUrl)).text,/QA Manpower/);
+            await postForm(manpowerUrl+'/reply',{content:'QA manpower reply'});
+            assert.match((await request(manpowerUrl)).text,/QA manpower reply/);
+            assert.equal((await postForm(manpowerUrl+'/delete',{})).response.status,302);
+            assert.equal(await db.prepare('SELECT id FROM manpower_requests WHERE id=?').get(manpowerUrl.split('/').at(-1)),undefined);
+
+            await login('hr.santos@taascor.com','HrUser123!');
+            assert.equal((await postForm(incidentUrl+'/action',{status:'resolved',hr_action_type:'none',hr_resolution_notes:'QA incident resolved'})).response.status,302);
+            assert.equal((await db.prepare('SELECT status FROM incident_reports WHERE id=?').get(incidentUrl.split('/').at(-1))).status,'resolved');
+            assert.equal((await postForm(concernUrl+'/reply',{content:'QA concern resolved',new_status:'resolved'})).response.status,302);
+            assert.equal((await db.prepare('SELECT status FROM concern_reports WHERE id=?').get(concernUrl.split('/').at(-1))).status,'resolved');
+            assert.equal((await request('/notifications')).response.status,200);
+            assert.equal((await postForm('/notifications/mark-all-read',{})).response.status,302);
+            const hr = await db.prepare('SELECT id FROM users WHERE email=?').get('hr.santos@taascor.com');
+            assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND is_read=0').get(hr.id)).n,0);
+        });
+        await t.test('admin can provision a staff account, reset its password, suspend it and reactivate it', async () => {
+            await login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
+            const email = 'qa.staff@taascor.com';
+            const password = randomUUID() + 'Aa1!';
+            const resetPassword = randomUUID() + 'Aa1!';
+            assert.equal((await postForm('/admin/create-user',{email,password,full_name:'QA Staff',role:'HR'})).response.status,302);
+            const account = await db.prepare('SELECT id, role, status FROM users WHERE email=?').get(email);
+            assert.equal(account.role,'HR');
+            assert.equal(account.status,'active');
+            const accountUrl = `/admin/users/${account.id}`;
+            assert.equal((await postForm(accountUrl+'/reset-password',{new_password:resetPassword,confirm_password:resetPassword})).response.status,302);
+            await login(email,password);
+            assert.equal((await request('/dashboard')).response.headers.get('location'),'/login');
+            await login(email,resetPassword);
+            assert.equal((await request('/dashboard')).response.status,200);
+            const staffCookie = jar.cookie;
+
+            await login(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD);
+            const adminCookie = jar.cookie;
+            assert.equal((await postForm(accountUrl+'/toggle-status',{})).response.status,302);
+            jar.cookie = staffCookie;
+            assert.equal((await request('/dashboard')).response.headers.get('location'),'/login?suspended=1');
+            jar.cookie = adminCookie;
+            assert.equal((await postForm(accountUrl+'/toggle-status',{})).response.status,302);
+            await login(email,resetPassword);
+            assert.equal((await request('/dashboard')).response.status,200);
         });
     } finally {
         if(server) await new Promise(resolve=>server.close(resolve));

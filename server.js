@@ -2,6 +2,7 @@ require('dotenv').config();
 require('express-async-errors');
 const express = require('express');
 const path = require('path');
+const { spawn } = require('child_process');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const { initializeDb, getDb, closeDb } = require('./db/database');
@@ -64,6 +65,7 @@ app.use(async (req, res, next) => {
             const db = getDb();
             const freshUser = (await db.prepare('SELECT id, email, full_name, role, status, profile_photo, phone, bio FROM users WHERE id = ?').get(req.session.user.id));
             if (freshUser) {
+                req.session.user.role = freshUser.role;
                 req.session.user.full_name = freshUser.full_name;
                 req.session.user.profile_photo = freshUser.profile_photo;
                 req.session.user.phone = freshUser.phone;
@@ -225,64 +227,22 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Guard against unexpected crashes
-process.on('uncaughtException', (err) => {
-    console.error('[PROCESS] Uncaught Exception:', err);
-});
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
 async function start(port = PORT) {
     await initializeDb();
     await createInitialAdmin();
     
-    // Ensure all standard role accounts exist and are ready
-    const db = getDb();
-    const bcrypt = require('bcryptjs');
-
-    // 1. HR Account
-    const hrAccount = await db.prepare("SELECT id FROM users WHERE email = 'hr' OR email = 'hr@taascor.com'").get();
-    if (!hrAccount) {
-        const hrHash = bcrypt.hashSync('hr@2026', 12);
-        await db.prepare(
-            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-             VALUES ('hr@taascor.com', ?, 'HR Staff', 'HR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
-        ).run(hrHash);
-    }
-
-    // 2. Head HR Account
-    const headHrAccount = await db.prepare("SELECT id FROM users WHERE role = 'HEAD_HR' OR email = 'headhr@taascor.com'").get();
-    if (!headHrAccount) {
-        const headHrHash = bcrypt.hashSync('headhr@2026', 12);
-        await db.prepare(
-            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-             VALUES ('headhr@taascor.com', ?, 'Head HR Coordinator', 'HEAD_HR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
-        ).run(headHrHash);
-    }
-
-    // 3. Coordinator Account: Mark Pasa (Sole coordinator account)
-    const markPasaAccount = await db.prepare("SELECT id FROM users WHERE email = 'mark.pasa@taascor.com'").get();
-    if (!markPasaAccount) {
-        const coordHash = bcrypt.hashSync('Taascor@2026', 12);
-        const res = await db.prepare(
-            `INSERT INTO users (email, password_hash, full_name, role, status, email_verified, must_change_password, created_at, updated_at)
-             VALUES ('mark.pasa@taascor.com', ?, 'Mark Pasa', 'COORDINATOR', 'active', 1, 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())`
-        ).run(coordHash);
-        const biChainArea = await db.prepare("SELECT id FROM areas WHERE name LIKE '%BI CHAIN%' ORDER BY id ASC LIMIT 1").get();
-        if (biChainArea) {
-            await db.prepare(`
-                INSERT INTO coordinator_area_assignments (user_id, area_id, assigned_by, assigned_at, is_current, remarks)
-                VALUES (?, ?, 1, UTC_TIMESTAMP(), 1, 'Assigned warehouse')
-            `).run(res.lastInsertRowid, biChainArea.id);
-        }
-    }
-
     await sessionStore.onReady();
-    return app.listen(port, () => {
-        console.log(`TAASCOR Attendance Tracking System (ATS) running on http://localhost:${PORT}`);
-        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    const server = app.listen(Number(port));
+    await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.once('listening', () => {
+            server.removeListener('error', reject);
+            resolve();
+        });
     });
+    console.log(`TAASCOR Attendance Tracking System (ATS) running on http://localhost:${server.address().port}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    return server;
 }
 
 async function shutdown() {
@@ -290,12 +250,25 @@ async function shutdown() {
     await closeDb();
 }
 if (require.main === module) {
+    const openLocal = process.platform === 'win32' && process.argv.includes('--open-local');
     start().then(server => {
+        if (openLocal) {
+            const url = `http://localhost:${server.address().port}/login`;
+            const browser = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { stdio: 'ignore', windowsHide: true });
+            browser.on('error', () => console.log(`Open ${url} in your browser.`));
+            browser.unref();
+        }
         for (const signal of ['SIGINT', 'SIGTERM']) {
             process.once(signal, () => server.close(() => shutdown().then(() => process.exit(0))));
         }
     }).catch(async error => {
         console.error('Startup failed:', error.message);
+        if (openLocal && ['ECONNREFUSED', 'ETIMEDOUT'].includes(error.code)) {
+            console.error('Start MySQL in the XAMPP Control Panel, then run START_TAASCOR_SERVER.bat again.');
+        }
+        if (openLocal && error.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use. If TAASCOR is already running, open http://localhost:${PORT}/login.`);
+        }
         await shutdown();
         process.exitCode = 1;
     });

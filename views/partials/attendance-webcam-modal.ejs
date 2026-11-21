@@ -311,6 +311,7 @@
                     <button type="button" class="btn-capture" id="captureBtn" onclick="capturePhoto()">
                         📸 Capture Photo
                     </button>
+                    <button type="button" class="btn-retake" id="retryCameraBtn" onclick="startWebcamCamera()" hidden>Retry camera</button>
                 </div>
             </div>
 
@@ -364,52 +365,57 @@ let currentWebcamMode = 'time-in';
 let activeCapturedDataUri = null;
 let currentReturnUrl = window.location.pathname;
 
-// Silent GPS data (captured quietly in background for Head HR only)
-let silentGps = {
-    lat: null,
-    lng: null,
-    accuracy: null,
-    address: null
-};
+let capturedLocation = null;
+let captureRevision = 0;
 
-// ── SILENT BACKGROUND LOCATION (No lag, invisible to coordinator/employee) ──
-function captureSilentLocation() {
-    if (!navigator.geolocation) return;
-    try {
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                silentGps.lat = pos.coords.latitude.toFixed(6);
-                silentGps.lng = pos.coords.longitude.toFixed(6);
-                silentGps.accuracy = Math.round(pos.coords.accuracy);
+let cameraRevision = 0;
+let gpsWatch = null;
+let locationRevision = 0;
+let latestPosition = null;
+const gpsOptions = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
 
-                // Fetch address silently in background for Head HR
-                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=18`;
-                fetch(url)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data && data.display_name) {
-                            const parts = data.display_name.split(',').map(s => s.trim()).filter(Boolean);
-                            silentGps.address = parts.slice(0, 3).join(', ');
-                        }
-                    })
-                    .catch(() => {});
-            },
-            function() {
-                // Silently ignore errors - no disruption to staff
-            },
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-        );
-    } catch (e) {}
+function stopLiveLocation() {
+    locationRevision++;
+    if (gpsWatch !== null) navigator.geolocation.clearWatch(gpsWatch);
+    gpsWatch = null;
+    latestPosition = null;
 }
 
-function getManilaDatetime() {
-    const now = new Date();
+function startLiveLocation() {
+    stopLiveLocation();
+    if (!navigator.geolocation) return;
+    const revision = locationRevision;
+    gpsWatch = navigator.geolocation.watchPosition(position => {
+        if (gpsWatch !== null && revision === locationRevision) latestPosition = position;
+    }, () => {}, gpsOptions);
+}
+
+async function readCaptureLocation(capturedAt) {
+    const recent = latestPosition && Math.abs(capturedAt.getTime() - latestPosition.timestamp) <= 8000;
+    const position = recent ? latestPosition : await new Promise(resolve => {
+        if (!navigator.geolocation) return resolve(null);
+        const timer = setTimeout(() => resolve(null), gpsOptions.timeout);
+        const finish = value => {
+            clearTimeout(timer);
+            resolve(value);
+        };
+        navigator.geolocation.getCurrentPosition(finish, () => finish(null), gpsOptions);
+    }).catch(() => null);
+    if (!position || Math.abs(capturedAt.getTime() - position.timestamp) > 8000) return null;
+    return {
+        lat: position.coords.latitude.toFixed(6),
+        lng: position.coords.longitude.toFixed(6),
+        accuracy: Math.round(position.coords.accuracy)
+    };
+}
+
+function getManilaDatetime(now) {
     const options = { timeZone: 'Asia/Manila' };
 
     const year   = now.toLocaleString('en-US', { ...options, year: 'numeric' });
     const month  = now.toLocaleString('en-US', { ...options, month: '2-digit' });
     const day    = now.toLocaleString('en-US', { ...options, day: '2-digit' });
-    const hour   = now.toLocaleString('en-US', { ...options, hour: '2-digit', hour12: false });
+    const hour   = now.toLocaleString('en-US', { ...options, hour: '2-digit', hourCycle: 'h23' });
     const minute = now.toLocaleString('en-US', { ...options, minute: '2-digit' });
     const second = now.toLocaleString('en-US', { ...options, second: '2-digit' });
 
@@ -425,9 +431,11 @@ function getManilaDatetime() {
 }
 
 // ── TAASCOR BRANDED WATERMARK (Drawn onto captured photo for Head HR) ──
-function drawTaascorWatermark(ctx, canvasWidth, canvasHeight) {
-    const dt = getManilaDatetime();
-    const locStr = silentGps.address || (silentGps.lat && silentGps.lng ? `${silentGps.lat}° N, ${silentGps.lng}° E` : window.TAASCOR_DEFAULT_AREA);
+function drawTaascorWatermark(ctx, canvasWidth, canvasHeight, capturedAt, location) {
+    const dt = getManilaDatetime(capturedAt);
+    const locationText = location
+        ? `GPS: ${location.lat}, ${location.lng}  ±${location.accuracy} m`
+        : 'GPS unavailable';
 
     const barHeight = Math.max(74, Math.round(canvasHeight * 0.18));
     const startY = canvasHeight - barHeight;
@@ -451,7 +459,7 @@ function drawTaascorWatermark(ctx, canvasWidth, canvasHeight) {
     ctx.font = 'bold ' + titleSize + 'px sans-serif';
     ctx.fillStyle = '#fbbf24';
     ctx.textAlign = 'left';
-    ctx.fillText('TAASCOR MANAGEMENT & GENERAL SERVICES CORP.', leftMargin, lineY);
+    ctx.fillText('TAASCOR', leftMargin, lineY);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#ffffff';
@@ -463,7 +471,7 @@ function drawTaascorWatermark(ctx, canvasWidth, canvasHeight) {
     ctx.font = 'bold ' + normalSize + 'px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`STAFF: ${window.TAASCOR_USER_NAME} (${window.TAASCOR_USER_ROLE}) | ${window.TAASCOR_DEFAULT_AREA}`, leftMargin, lineY);
+    ctx.fillText(`${window.TAASCOR_USER_NAME} | ${window.TAASCOR_DEFAULT_AREA}`, leftMargin, lineY, Math.max(1, canvasWidth - 150));
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#fbbf24';
@@ -474,7 +482,7 @@ function drawTaascorWatermark(ctx, canvasWidth, canvasHeight) {
     ctx.font = 'normal ' + (normalSize - 1) + 'px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#93c5fd';
-    ctx.fillText(`VERIFIED LOCATION: ${locStr}`, leftMargin, lineY);
+    ctx.fillText(locationText, leftMargin, lineY, canvasWidth - 2 * leftMargin);
 
     ctx.restore();
 }
@@ -483,6 +491,8 @@ function openWebcam(mode, returnUrl) {
     currentWebcamMode = mode || 'time-in';
     currentReturnUrl = returnUrl || window.location.pathname;
     activeCapturedDataUri = null;
+    capturedLocation = null;
+    captureRevision++;
 
     const titleEl = document.getElementById('webcamModalTitle');
     const submitBtn = document.getElementById('submitPunchBtn');
@@ -500,71 +510,90 @@ function openWebcam(mode, returnUrl) {
     document.getElementById('webcamModalOverlay').classList.add('active');
     resetWebcamToCapture();
     startWebcamCamera();
-    captureSilentLocation();
+    startLiveLocation();
 }
 
 function closeWebcam() {
+    captureRevision++;
+    cameraRevision++;
+    stopLiveLocation();
+    capturedLocation = null;
     stopWebcamCamera();
     document.getElementById('webcamModalOverlay').classList.remove('active');
     activeCapturedDataUri = null;
 }
 
-// ── FAST, NATIVE CAMERA INITIALIZATION (NO LAG / NO HANG) ──
-function startWebcamCamera() {
-    const statusEl = document.getElementById('cameraStatus');
-    const captureBtn = document.getElementById('captureBtn');
-
-    statusEl.className = 'camera-status';
-    statusEl.innerHTML = '<span>⏳</span><span>Starting camera preview…</span>';
-    captureBtn.disabled = true;
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        handleCameraFailure('Webcam API is not supported in this browser.');
-        return;
-    }
-
-    // Stop any stale stream before requesting new one
-    stopWebcamCamera();
-
-    // Try standard selfie camera first, fallback cleanly to default video
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false
-    })
-    .then(stream => handleStreamSuccess(stream))
-    .catch(err1 => {
-        // Fallback to generic video
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-            .then(stream => handleStreamSuccess(stream))
-            .catch(err2 => {
-                handleCameraFailure('Camera not available or access denied. Please allow camera permissions in your browser.');
-            });
+function waitForCameraFrame(video) {
+    return new Promise((resolve, reject) => {
+        let frameRequest;
+        const timer = setTimeout(() => finish(new Error('Camera preview timed out')), 3500);
+        function finish(error) {
+            clearTimeout(timer);
+            video.removeEventListener('playing', onPlaying);
+            if (frameRequest !== undefined) video.cancelVideoFrameCallback(frameRequest);
+            if (error) reject(error);
+            else resolve();
+        }
+        function onPlaying() {
+            if (video.readyState >= 2 && video.videoWidth > 0) finish();
+        }
+        if (video.requestVideoFrameCallback) {
+            frameRequest = video.requestVideoFrameCallback(() => finish());
+        } else {
+            video.addEventListener('playing', onPlaying);
+            onPlaying();
+        }
+        video.play().catch(finish);
     });
 }
 
-function handleStreamSuccess(stream) {
-    activeWebcamStream = stream;
+async function startWebcamCamera() {
+    const revision = ++cameraRevision;
     const video = document.getElementById('cameraVideo');
-    if (!video) return;
+    const status = document.getElementById('cameraStatus');
+    const capture = document.getElementById('captureBtn');
+    const retry = document.getElementById('retryCameraBtn');
 
-    video.srcObject = stream;
-    video.play().catch(e => console.warn('Video play:', e));
+    stopWebcamCamera();
+    retry.hidden = true;
+    capture.disabled = true;
+    status.className = 'camera-status';
+    status.textContent = 'Starting camera preview...';
 
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>🎥</span><span>Live Camera Active — Align face within guide and tap Capture</span>';
+    if (!navigator.mediaDevices?.getUserMedia) {
+        status.textContent = 'Camera requires HTTPS or localhost and a supported browser.';
+        return;
+    }
 
-    const captureBtn = document.getElementById('captureBtn');
-    captureBtn.disabled = false;
-}
+    const profiles = [
+        { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } },
+        true
+    ];
+    for (const profile of profiles) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: profile, audio: false });
+            if (revision !== cameraRevision) {
+                stream.getTracks().forEach(track => track.stop());
+                return;
+            }
+            activeWebcamStream = stream;
+            video.srcObject = stream;
+            await waitForCameraFrame(video);
+            if (revision !== cameraRevision) return;
+            status.className = 'camera-status success';
+            status.textContent = 'Camera ready. Align your face and tap Capture.';
+            capture.disabled = false;
+            return;
+        } catch (error) {
+            if (revision !== cameraRevision) return;
+            stopWebcamCamera();
+            if (error.name === 'NotAllowedError' || error.name === 'SecurityError') break;
+        }
+    }
 
-function handleCameraFailure(msg) {
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status error';
-    statusEl.innerHTML = `<span>⚠️</span> <span>${msg}</span>`;
-
-    const captureBtn = document.getElementById('captureBtn');
-    captureBtn.disabled = true;
+    status.className = 'camera-status error';
+    status.textContent = 'No camera preview. Check camera permissions or close other apps using it, then retry.';
+    retry.hidden = false;
 }
 
 function stopWebcamCamera() {
@@ -576,14 +605,22 @@ function stopWebcamCamera() {
     if (video) video.srcObject = null;
 }
 
-function capturePhoto() {
+async function capturePhoto() {
     const video = document.getElementById('cameraVideo');
     const canvas = document.getElementById('cameraCanvas');
 
-    if (!video || !activeWebcamStream) return;
+    const captureBtn = document.getElementById('captureBtn');
+    if (!video?.videoWidth || !activeWebcamStream || captureBtn.disabled) return;
 
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 480;
+    captureBtn.disabled = true;
+    const revision = ++captureRevision;
+    const capturedAt = new Date();
+    const statusEl = document.getElementById('cameraStatus');
+    statusEl.className = 'camera-status';
+    statusEl.textContent = 'Photo taken. Getting current GPS location...';
+    const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+    const w = Math.round(video.videoWidth * scale);
+    const h = Math.round(video.videoHeight * scale);
 
     canvas.width = w;
     canvas.height = h;
@@ -596,8 +633,10 @@ function capturePhoto() {
     ctx.drawImage(video, -w, 0, w, h);
     ctx.restore();
 
-    // Burn TAASCOR verified watermark onto photo for Head HR
-    drawTaascorWatermark(ctx, w, h);
+    const location = await readCaptureLocation(capturedAt);
+    if (revision !== captureRevision) return;
+    capturedLocation = location;
+    drawTaascorWatermark(ctx, w, h, capturedAt, capturedLocation);
 
     activeCapturedDataUri = canvas.toDataURL('image/jpeg', 0.85);
 
@@ -608,12 +647,15 @@ function capturePhoto() {
     document.getElementById('captureStepWrap').style.display = 'none';
     document.getElementById('confirmRow').style.display = 'flex';
 
-    const statusEl = document.getElementById('cameraStatus');
-    statusEl.className = 'camera-status success';
-    statusEl.innerHTML = '<span>✅</span><span>Photo captured! Confirm below to record your punch.</span>';
+    statusEl.className = location ? 'camera-status success' : 'camera-status';
+    statusEl.textContent = location
+        ? 'Photo and GPS captured. Confirm below to record your punch.'
+        : 'GPS unavailable. Allow location and retake, or confirm with the photo only.';
 }
 
 function retakePhoto() {
+    captureRevision++;
+    capturedLocation = null;
     activeCapturedDataUri = null;
     resetWebcamToCapture();
     if (!activeWebcamStream) {
@@ -645,12 +687,13 @@ function submitPunch() {
     btn.disabled = true;
     btn.textContent = '⏳ Recording…';
 
+    stopLiveLocation();
     stopWebcamCamera();
 
-    const latVal = silentGps.lat || '';
-    const lngVal = silentGps.lng || '';
-    const accVal = silentGps.accuracy ? String(silentGps.accuracy) : '';
-    const locVal = silentGps.address || window.TAASCOR_DEFAULT_AREA || '';
+    const latVal = capturedLocation?.lat ?? '';
+    const lngVal = capturedLocation?.lng ?? '';
+    const accVal = capturedLocation?.accuracy ?? '';
+    const locVal = capturedLocation ? `${latVal}, ${lngVal} (±${accVal} m)` : '';
 
     if (currentWebcamMode === 'time-in') {
         document.getElementById('timeInPhotoHidden').value = activeCapturedDataUri;

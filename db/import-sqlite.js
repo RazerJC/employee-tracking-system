@@ -35,7 +35,8 @@ async function importSqlite(sourcePath) {
                 const unknown = sourceColumns.filter(c => !columns.includes(c));
                 if (unknown.length) throw new Error(`Unmapped source columns in ${table}: ${unknown.join(', ')}. Import rolled back to prevent data loss.`);
                 const selected = columns.filter(c => sourceColumns.includes(c));
-                const rows = source.prepare(`SELECT * FROM "${table}" ORDER BY id`).all();
+                const orderBy = sourceColumns.includes('id') ? ' ORDER BY id' : '';
+                const rows = source.prepare(`SELECT * FROM "${table}"${orderBy}`).all();
                 const insert = getDb().prepare(`INSERT INTO \`${table}\` (${selected.map(c => '\`' + c + '\`').join(',')}) VALUES (${selected.map(() => '?').join(',')})`);
                 for (const row of rows) {
                     for (const column of columnInfo.filter(c => c.Type === 'date')) {
@@ -57,14 +58,17 @@ async function importSqlite(sourcePath) {
                 if (target.count !== rows.length) throw new Error(`Row-count mismatch for ${table}`);
                 counts[table] = target.count;
             }
-        })();
+        }, lock)();
         return counts;
     } finally {
         if (sourceTransaction) source.exec('ROLLBACK');
         source.close();
         if (lock) {
-            await lock.query('SELECT RELEASE_LOCK(?)', [`taascor-import-${process.env.DB_NAME}`.slice(0,64)]);
-            lock.release();
+            try {
+                await lock.query('SELECT RELEASE_LOCK(?)', [`taascor-import-${process.env.DB_NAME}`.slice(0, 64)]);
+            } finally {
+                lock.release();
+            }
         }
     }
 }

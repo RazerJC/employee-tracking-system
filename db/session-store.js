@@ -4,7 +4,7 @@ const { getPool } = require('./database');
 
 function createSessionStore() {
     const store = new MySQLStore({
-        createDatabaseTable: true,
+        createDatabaseTable: false,
         endConnectionOnClose: false,
         expiration: 8 * 60 * 60 * 1000,
         checkExpirationInterval: 15 * 60 * 1000

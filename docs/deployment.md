@@ -33,7 +33,9 @@ npm run db:init
 npm start
 ```
 
-Startup also creates missing tables and the first administrator. It fails before listening if the database is unavailable. The database user needs CREATE and normal SELECT/INSERT/UPDATE/DELETE permissions for automatic initialization. Tables use InnoDB, foreign keys, unique constraints, UTF-8, and UTC timestamps.
+Startup also creates missing tables and the first administrator. It fails before listening if the database is unavailable. The database user needs CREATE, ALTER (for schema upgrades), and normal SELECT/INSERT/UPDATE/DELETE permissions for automatic initialization. Tables use InnoDB, foreign keys, unique constraints, UTF-8, and UTC timestamps.
+
+Create HR, Head HR, and Coordinator accounts through **User Management**. Assign each coordinator to their warehouse. For existing installations that previously used the shared account passwords, change those passwords individually before opening the deployment to users.
 
 ## Import the existing SQLite database
 

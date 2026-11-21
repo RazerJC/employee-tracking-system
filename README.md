@@ -70,21 +70,9 @@ A full-stack, enterprise attendance and workforce management web application bui
 
 For existing SQLite records, import into an empty MySQL database before initialization: `npm run db:import-sqlite -- /path/to/taascor.db`. Follow [the deployment guide](docs/deployment.md) for Hostinger setup, import precautions, and database integration tests.
 
-## System Account Credentials
+## System accounts
 
-After running `node scripts/fix-and-verify-all-accounts.js`, these are the active accounts:
-
-| Role | Email / Username | Password | Notes |
-| :--- | :--- | :--- | :--- |
-| **ADMIN** | `admin@taascor.com` or `admin` | `admin@2026` | System-Wide Access |
-| **HEAD HR** | `headhr@taascor.com` or `headhr` | `headhr@2026` | System-Wide Access |
-| **HR** | `hr@taascor.com` or `hr` | `hr@2026` | System-Wide Access |
-| **COORDINATOR** | `mark.pasa@taascor.com` | `Taascor@2026` | Assigned Warehouse |
-| **COORDINATOR** | *(all other coordinators)* | `Taascor@2026` | Assigned Warehouse |
-
-> **Login Tip:** You can log in using just the username prefix (e.g., `admin`, `hr`, `headhr`) - the system auto-appends `@taascor.com`.
-
----
+Initial setup creates the first administrator using `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Change the temporary password on first sign-in. Use **User Management** to create staff and coordinator accounts, assign coordinator warehouses, or reset an individual password. Users can sign in with their full email or their username for accounts on `taascor.com`.
 
 ## Optional Development Sample Credentials (Seed Data)
 
