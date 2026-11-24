@@ -68,7 +68,14 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             }
             fs.rmdirSync(dir);
         });
-        await require('../db/seed').createInitialAdmin();
+        app = require('../server');
+        server = await app.start(0);
+        await t.test('startup provisions only the configured initial administrator', async () => {
+            const users = await db.prepare('SELECT email, role FROM users').all();
+            assert.deepEqual(users, [{ email: process.env.ADMIN_EMAIL, role: 'ADMIN' }]);
+            const { count } = await db.prepare('SELECT COUNT(*) AS count FROM coordinator_area_assignments').get();
+            assert.equal(count, 0);
+        });
         await require('../db/seed').seedSampleData();
         await t.test('all eight existing business verification scenarios', async () => {
             await require('../verify').runVerification();
@@ -86,7 +93,6 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             const cases = await Promise.all(Array.from({length:4}, () => handleEmployeeAbsence(result.lastInsertRowid, '2026-09-16', 3)));
             assert.equal(new Set(cases.map(c => c.id)).size, 1);
         });
-        app = require('../server'); server = await app.start(0);
         let base = `http://127.0.0.1:${server.address().port}`;
         const jar = {};
         async function request(url, init={}) {
