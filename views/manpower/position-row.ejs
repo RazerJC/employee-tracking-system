@@ -1,0 +1,20 @@
+<% const minimum = Math.max(position.assigned_count || 0, position.allocation_count ? 1 : 0); %>
+<div class="manpower-position-row" data-position-id="<%= position.id %>" data-requested="<%= Boolean(position.request_position_id) %>">
+    <div>
+        <strong data-position-title><%= position.title %></strong>
+        <div class="text-xs text-muted" data-position-description><%= position.description || '' %></div>
+        <span class="text-xs text-muted" data-position-archived <%= position.is_active ? 'hidden' : '' %>>Archived</span>
+        <% if (minimum) { %>
+            <div class="text-xs text-muted">Minimum <%= minimum %> for existing allocations</div>
+        <% } %>
+    </div>
+    <div class="manpower-position-actions">
+        <% if (manageCatalog && position.is_active) { %>
+            <button type="button" class="manpower-position-icon" data-position-action="edit" aria-label="Edit <%= position.title %>" title="Edit"><span aria-hidden="true">✎</span></button>
+            <button type="button" class="manpower-position-icon manpower-position-delete" data-position-action="archive" aria-label="Delete <%= position.title %>" title="Delete"><span aria-hidden="true">🗑︎</span></button>
+        <% } %>
+        <label class="text-sm">Qty:
+            <input type="number" name="positions[p_<%= position.id %>]" class="form-control" min="<%= minimum %>" max="100" value="<%= quantity %>" aria-label="<%= position.title %> quantity">
+        </label>
+    </div>
+</div>

@@ -2,10 +2,7 @@
 
 <div class="page-header">
     <div>
-        <h2>🏥 Back-to-Work Clearance Management</h2>
-        <div class="breadcrumb">
-            <span>Official HR Clearance, Disciplinary Actions & Return-to-Work Monitoring</span>
-        </div>
+        <h2>Back-to-Work Clearances</h2>
     </div>
 </div>
 
@@ -14,7 +11,7 @@
     <a href="/btw?tab=pending<%= selectedAreaId ? '&area_id=' + selectedAreaId : '' %><%= searchQuery ? '&q=' + encodeURIComponent(searchQuery) : '' %>" 
        class="tab <%= currentTab === 'pending' ? 'active' : '' %>"
        style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 18px;">
-        <span>⏳ Pending Review</span>
+        <span>Pending</span>
         <span class="badge <%= counts.pending > 0 ? 'badge-warning' : 'badge-neutral' %>" style="font-size: 0.75rem; border-radius: 9999px;">
             <%= counts.pending %>
         </span>
@@ -22,7 +19,7 @@
     <a href="/btw?tab=approved<%= selectedAreaId ? '&area_id=' + selectedAreaId : '' %><%= searchQuery ? '&q=' + encodeURIComponent(searchQuery) : '' %>" 
        class="tab <%= currentTab === 'approved' ? 'active' : '' %>"
        style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 18px;">
-        <span>✅ Approved Clearances</span>
+        <span>Approved</span>
         <span class="badge badge-success" style="font-size: 0.75rem; border-radius: 9999px;">
             <%= counts.approved %>
         </span>
@@ -30,13 +27,13 @@
     <a href="/btw?tab=summary<%= selectedAreaId ? '&area_id=' + selectedAreaId : '' %><%= searchQuery ? '&q=' + encodeURIComponent(searchQuery) : '' %>" 
        class="tab <%= currentTab === 'summary' ? 'active' : '' %>"
        style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 18px;">
-        <span>📋 Summary Overview</span>
+        <span>Summary</span>
         <span class="badge badge-info" style="font-size: 0.75rem; border-radius: 9999px;">
             <%= counts.summary %>
         </span>
         <% if (counts.suspended > 0) { %>
             <span class="badge badge-danger" style="font-size: 0.7rem; border-radius: 9999px;" title="Currently Suspended Employees">
-                🔴 <%= counts.suspended %> Suspended
+                <%= counts.suspended %> Suspended
             </span>
         <% } %>
     </a>
@@ -48,22 +45,18 @@
     <div class="stat-card" style="background: var(--color-surface, #fff); border: 1px solid var(--color-gray-200, #e2e8f0); border-radius: 10px; padding: 16px;">
         <div class="text-muted text-xs" style="text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Total Cases</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: var(--color-primary, #1e293b); margin-top: 4px;"><%= counts.summary %></div>
-        <div class="text-xs text-muted" style="margin-top: 4px;">Overall clearance records</div>
     </div>
     <div class="stat-card" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 16px;">
         <div style="color: #92400e; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Pending HR Review</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #b45309; margin-top: 4px;"><%= counts.pending %></div>
-        <div class="text-xs" style="color: #b45309; margin-top: 4px;">Awaiting official decision</div>
     </div>
     <div class="stat-card" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px;">
         <div style="color: #166534; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Approved Clearances</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #15803d; margin-top: 4px;"><%= counts.approved %></div>
-        <div class="text-xs" style="color: #166534; margin-top: 4px;">Authorized to return to work</div>
     </div>
     <div class="stat-card" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 16px;">
         <div style="color: #991b1b; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Suspended Workers</div>
         <div style="font-size: 1.8rem; font-weight: 800; color: #dc2626; margin-top: 4px;"><%= counts.suspended %></div>
-        <div class="text-xs" style="color: #991b1b; margin-top: 4px;">With active/issued suspensions</div>
     </div>
 </div>
 <% } %>
@@ -73,8 +66,8 @@
     <input type="hidden" name="tab" value="<%= currentTab %>">
 
     <div class="filter-group" style="flex: 1 1 200px;">
-        <label for="btw-search" style="font-size: 0.8rem; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; display: block;">Search Employee / Ref / Article</label>
-        <input type="text" id="btw-search" name="q" class="form-control" placeholder="Search by name, ID, reference..." value="<%= searchQuery || '' %>">
+        <label for="btw-search" style="font-size: 0.8rem; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; display: block;">Search</label>
+        <input type="text" id="btw-search" name="q" class="form-control" placeholder="Name, ID, case reference, or policy" value="<%= searchQuery || '' %>">
     </div>
 
     <% if (areas.length > 0) { %>
@@ -94,17 +87,17 @@
             <label for="status" style="font-size: 0.8rem; font-weight: 600; color: var(--color-gray-600); margin-bottom: 4px; display: block;">Filter Status</label>
             <select id="status" name="status" class="form-control" onchange="this.form.submit()">
                 <option value="">All Statuses</option>
-                <option value="suspended" <%= statusFilter === 'suspended' ? 'selected' : '' %>>🔴 Suspended Only</option>
-                <option value="approved" <%= statusFilter === 'approved' ? 'selected' : '' %>>✅ Approved Only</option>
-                <option value="pending_hr_review" <%= statusFilter === 'pending_hr_review' ? 'selected' : '' %>>⏳ Pending HR Review</option>
-                <option value="for_clarification" <%= statusFilter === 'for_clarification' ? 'selected' : '' %>>⚠️ For Clarification</option>
-                <option value="not_approved" <%= statusFilter === 'not_approved' ? 'selected' : '' %>>❌ Not Approved</option>
+                <option value="suspended" <%= statusFilter === 'suspended' ? 'selected' : '' %>>Suspended Only</option>
+                <option value="approved" <%= statusFilter === 'approved' ? 'selected' : '' %>>Approved Only</option>
+                <option value="pending_hr_review" <%= statusFilter === 'pending_hr_review' ? 'selected' : '' %>>Pending HR Review</option>
+                <option value="for_clarification" <%= statusFilter === 'for_clarification' ? 'selected' : '' %>>For Clarification</option>
+                <option value="not_approved" <%= statusFilter === 'not_approved' ? 'selected' : '' %>>Not Approved</option>
             </select>
         </div>
     <% } %>
 
     <div style="display: flex; gap: 8px;">
-        <button type="submit" class="btn btn-primary btn-sm" style="height: 38px;">Apply Filter</button>
+        <button type="submit" class="btn btn-primary btn-sm" style="height: 38px;">Apply filters</button>
         <% if (searchQuery || selectedAreaId || statusFilter) { %>
             <a href="/btw?tab=<%= currentTab %>" class="btn btn-ghost btn-sm" style="height: 38px; display: inline-flex; align-items: center;">Reset</a>
         <% } %>
@@ -118,14 +111,14 @@
             <table class="data-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 0.8rem; text-transform: uppercase; color: #475569;">
-                        <th style="padding: 12px 14px; text-align: left;">Case Ref & Date</th>
-                        <th style="padding: 12px 14px; text-align: left;">Employee & Warehouse</th>
-                        <th style="padding: 12px 14px; text-align: center;">Suspended Ba?</th>
-                        <th style="padding: 12px 14px; text-align: left;">Anong Dahilan</th>
-                        <th style="padding: 12px 14px; text-align: left;">Nilabag na Article</th>
-                        <th style="padding: 12px 14px; text-align: center;">Simula ng Suspension</th>
-                        <th style="padding: 12px 14px; text-align: center;">Tapos ng Suspension</th>
-                        <th style="padding: 12px 14px; text-align: center;">Petsa ng Balik</th>
+                        <th style="padding: 12px 14px; text-align: left;">Case</th>
+                        <th style="padding: 12px 14px; text-align: left;">Employee</th>
+                        <th style="padding: 12px 14px; text-align: center;">Status</th>
+                        <th style="padding: 12px 14px; text-align: left;">Reason</th>
+                        <th style="padding: 12px 14px; text-align: left;">Policy violated</th>
+                        <th style="padding: 12px 14px; text-align: center;">Suspension start</th>
+                        <th style="padding: 12px 14px; text-align: center;">Suspension end</th>
+                        <th style="padding: 12px 14px; text-align: center;">Return date</th>
                         <th style="padding: 12px 14px; text-align: right;">Action</th>
                     </tr>
                 </thead>
@@ -156,7 +149,7 @@
                             const isPending = ['pending_hr_review', 'for_clarification'].includes(c.status);
                         %>
                             <tr style="border-bottom: 1px solid #f1f5f9; <%= isSuspended ? 'background: rgba(254, 242, 242, 0.35);' : '' %>">
-                                <!-- 1. Case Ref & Date -->
+                                <!-- 1. Case -->
                                 <td style="padding: 12px 14px; vertical-align: middle;">
                                     <a href="/btw/<%= c.id %>" style="font-weight: 700; color: var(--color-primary, #1e40af); font-size: 0.9rem;">
                                         <%= c.case_ref %>
@@ -171,7 +164,7 @@
                                     <% } %>
                                 </td>
 
-                                <!-- 2. Employee & Warehouse -->
+                                <!-- 2. Employee -->
                                 <td style="padding: 12px 14px; vertical-align: middle;">
                                     <strong><%= c.employee_name %></strong>
                                     <div class="text-xs text-muted" style="margin-top: 2px;">
@@ -182,15 +175,15 @@
                                     </div>
                                 </td>
 
-                                <!-- 3. Suspended Ba? (Status Badge) -->
+                                <!-- 3. Status (Status Badge) -->
                                 <td style="padding: 12px 14px; text-align: center; vertical-align: middle;">
                                     <% if (isSuspended) { %>
                                         <span class="badge badge-danger" style="font-weight: 800; padding: 4px 8px; border: 1px solid #f87171; background: #fee2e2; color: #991b1b; display: inline-flex; align-items: center; gap: 4px;">
-                                            🔴 SUSPENDED
+                                            SUSPENDED
                                         </span>
                                     <% } else if (c.effective_action_type === 'warning') { %>
                                         <span class="badge badge-warning" style="font-weight: 700; padding: 4px 8px; background: #fef3c7; color: #92400e;">
-                                            ⚠️ WARNING ISSUED
+                                            WARNING ISSUED
                                         </span>
                                     <% } else if (c.effective_action_type === 'nte') { %>
                                         <span class="badge badge-warning" style="font-weight: 700; padding: 4px 8px; background: #fef3c7; color: #92400e;">
@@ -206,12 +199,12 @@
                                         </span>
                                     <% } else { %>
                                         <span class="badge badge-warning" style="font-weight: 700; padding: 4px 8px; background: #fef3c7; color: #b45309;">
-                                            ⏳ PENDING HR
+                                            PENDING HR
                                         </span>
                                     <% } %>
                                 </td>
 
-                                <!-- 4. Anong Dahilan (Absence & HR Reason) -->
+                                <!-- 4. Reason (Absence & HR Reason) -->
                                 <td style="padding: 12px 14px; vertical-align: middle; max-width: 220px;">
                                     <div style="font-size: 0.85rem; font-weight: 600; color: #1e293b;">
                                         <%= c.absence_reason || 'Absence' %>
@@ -223,7 +216,7 @@
                                     <% } %>
                                 </td>
 
-                                <!-- 5. Nilabag na Article -->
+                                <!-- 5. Policy violated -->
                                 <td style="padding: 12px 14px; vertical-align: middle; max-width: 180px;">
                                     <% if (c.effective_article) { %>
                                         <span class="badge badge-warning" style="font-size: 0.78rem; font-weight: 700; white-space: normal; text-align: left; line-height: 1.3; background: #fef3c7; color: #78350f; border: 1px solid #fde68a;">
@@ -234,7 +227,7 @@
                                     <% } %>
                                 </td>
 
-                                <!-- 6. Simula ng Suspension -->
+                                <!-- 6. Suspension start -->
                                 <td style="padding: 12px 14px; text-align: center; vertical-align: middle;">
                                     <% if (isSuspended && c.effective_suspension_start) { %>
                                         <strong style="color: #dc2626; font-size: 0.85rem;"><%= formatDate(c.effective_suspension_start) %></strong>
@@ -243,7 +236,7 @@
                                     <% } %>
                                 </td>
 
-                                <!-- 7. Tapos ng Suspension -->
+                                <!-- 7. Suspension end -->
                                 <td style="padding: 12px 14px; text-align: center; vertical-align: middle;">
                                     <% if (isSuspended && c.effective_suspension_end) { %>
                                         <strong style="color: #b91c1c; font-size: 0.85rem;"><%= formatDate(c.effective_suspension_end) %></strong>
@@ -252,7 +245,7 @@
                                     <% } %>
                                 </td>
 
-                                <!-- 8. Petsa ng Balik -->
+                                <!-- 8. Return date -->
                                 <td style="padding: 12px 14px; text-align: center; vertical-align: middle;">
                                     <% if (c.effective_return_date) { %>
                                         <span class="badge badge-success" style="font-weight: 700; font-size: 0.82rem; padding: 4px 8px; background: #dcfce7; color: #15803d; border: 1px solid #86efac;">

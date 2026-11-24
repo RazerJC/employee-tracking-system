@@ -1,12 +1,13 @@
 <%- include('../partials/layout-top') %>
+<% const manageCatalog = ['COORDINATOR', 'HR', 'ADMIN'].includes(user.role); %>
 
 <div class="page-header">
     <div>
-        <h2>Submit Manpower Request</h2>
+        <h2><%= positionsOnly ? 'Edit Positions for Request #' + request.id : (request ? 'Edit Manpower Request' : 'New Manpower Request') %></h2>
         <div class="breadcrumb">
             <a href="/manpower">Manpower Requests</a>
             <span>/</span>
-            <span>New Request</span>
+            <span><%= request ? 'Edit Request' : 'New Request' %></span>
         </div>
     </div>
 </div>
@@ -14,15 +15,16 @@
 <div style="max-width: 800px;">
     <div class="card">
         <div class="card-body">
-            <form action="/manpower" method="POST">
+            <form action="<%= request ? '/manpower/' + request.id + '/edit' + (positionsOnly ? '?section=positions' : '') : '/manpower' %>" method="POST">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
+                <% if (!positionsOnly) { %>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="area_id">Warehouse / Area <span class="required">*</span></label>
                         <% if (user.role === 'COORDINATOR') { %>
-                            <input type="hidden" name="area_id" value="<%= userAreaId %>">
-                            <input type="text" class="form-control" value="<%= userArea ? userArea.name : '' %>" readonly disabled>
+                            <input type="hidden" name="area_id" value="<%= request?.area_id ?? userAreaId %>">
+                            <input type="text" class="form-control" value="<%= request?.area_name ?? userArea?.name ?? '' %>" readonly disabled>
                         <% } else { %>
                             <select id="area_id" name="area_id" class="form-control" required>
                                 <% areas.forEach(a => { %>
@@ -33,67 +35,96 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="deployment_date">Required Term Deployment Date <span class="required">*</span></label>
+                        <label for="deployment_date">Deployment Date <span class="required">*</span></label>
                         <input type="date" id="deployment_date" name="deployment_date" class="form-control" 
-                               value="<%= new Date(Date.now() + 86400000).toISOString().split('T')[0] %>" required>
+                               value="<%= request?.deployment_date || new Date(Date.now() + 86400000).toISOString().split('T')[0] %>" required>
                     </div>
                 </div>
 
+                <% } %>
                 <!-- Position Breakdown -->
                 <div class="form-group">
-                    <label>Requested Positions & Number of Workers Needed <span class="required">*</span></label>
-                    <div style="background: var(--color-gray-50); border: 1px solid var(--color-gray-300); border-radius: 6px; padding: 14px;">
+                    <div class="manpower-positions-header">
+                        <strong>Requested Positions and Quantities</strong>
+                        <% if (manageCatalog) { %>
+                            <button type="button" class="btn btn-sm btn-outline" id="add-catalog-position" aria-label="Add Position"><span aria-hidden="true">+</span> Add</button>
+                        <% } %>
+                    </div>
+                    <div id="manpower-position-list" class="manpower-position-list">
                         <% positions.forEach(p => { %>
-                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--color-gray-200);">
-                                <div>
-                                    <strong><%= p.title %></strong>
-                                    <% if (p.description) { %>
-                                        <div class="text-xs text-muted"><%= p.description %></div>
-                                    <% } %>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span class="text-sm">Qty:</span>
-                                    <input type="number" name="positions[p_<%= p.id %>]" class="form-control" min="0" max="100" value="0" style="width: 80px; text-align: center;">
-                                </div>
-                            </div>
+                            <%- include('position-row', { position: p, quantity: quantities[p.id] ?? 0, manageCatalog }) %>
                         <% }) %>
                     </div>
+                    <% if (manageCatalog) { %>
+                        <div role="status" class="text-sm text-muted" id="position-catalog-status"></div>
+                    <% } %>
                 </div>
 
+                <% if (!positionsOnly) { %>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="priority">Priority Level</label>
                         <select id="priority" name="priority" class="form-control">
-                            <option value="normal">Normal</option>
-                            <option value="high">High</option>
-                            <option value="urgent">Urgent</option>
-                            <option value="low">Low</option>
+                            <option value="normal" <%= request?.priority === 'normal' ? 'selected' : '' %>>Normal</option>
+                            <option value="high" <%= request?.priority === 'high' ? 'selected' : '' %>>High</option>
+                            <option value="urgent" <%= request?.priority === 'urgent' ? 'selected' : '' %>>Urgent</option>
+                            <option value="low" <%= request?.priority === 'low' ? 'selected' : '' %>>Low</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label for="shift_details">Shift Schedule</label>
-                        <input type="text" id="shift_details" name="shift_details" class="form-control" placeholder="e.g. 08:00 - 17:00 Day Shift">
+                        <input type="text" id="shift_details" name="shift_details" value="<%= request?.shift_details || '' %>" class="form-control" placeholder="e.g. 08:00 - 17:00 Day Shift">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="reason">Reason for Request <span class="required">*</span></label>
-                    <input type="text" id="reason" name="reason" class="form-control" placeholder="e.g. Peak season volume surge, warehouse inventory audit" required>
+                    <input type="text" id="reason" name="reason" value="<%= request?.reason || '' %>" class="form-control" placeholder="e.g. Peak season volume surge, warehouse inventory audit" required>
                 </div>
 
                 <div class="form-group">
                     <label for="remarks">Additional Instructions / Qualifications</label>
-                    <textarea id="remarks" name="remarks" class="form-control" rows="3" placeholder="Special requirements like forklift certification or safety gear..."></textarea>
+                    <textarea id="remarks" name="remarks" class="form-control" rows="3" placeholder="Special requirements"><%= request?.remarks || '' %></textarea>
                 </div>
 
+                <% } %>
                 <div class="d-flex gap-1" style="margin-top: 24px;">
-                    <button type="submit" class="btn btn-primary btn-lg">Submit Manpower Request</button>
-                    <a href="/manpower" class="btn btn-outline btn-lg">Cancel</a>
+                    <button type="submit" class="btn btn-primary btn-lg"><%= positionsOnly ? 'Save Positions' : (request ? 'Save Changes' : 'Submit Request') %></button>
+                    <a href="<%= request ? '/manpower/' + request.id : '/manpower' %>" class="btn btn-outline btn-lg">Cancel</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<% if (manageCatalog) { %>
+    <template id="manpower-position-template">
+        <%- include('position-row', { position: { id: '', title: '', is_active: 1 }, quantity: 0, manageCatalog }) %>
+    </template>
+    <dialog id="manpower-position-dialog" class="card manpower-position-dialog" aria-labelledby="position-dialog-title">
+        <form id="manpower-catalog-form" class="card-body" action="/manpower/position-catalog" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <h3 id="position-dialog-title"></h3>
+            <p id="position-dialog-note" class="text-sm text-muted"></p>
+            <div id="position-dialog-fields">
+                <div class="form-group">
+                    <label for="catalog-position-title">Position Title</label>
+                    <input id="catalog-position-title" name="title" class="form-control" maxlength="191">
+                </div>
+                <div class="form-group">
+                    <label for="catalog-position-description">Description</label>
+                    <textarea id="catalog-position-description" name="description" class="form-control" rows="2" maxlength="1000"></textarea>
+                </div>
+            </div>
+            <p class="text-sm" role="alert" id="position-dialog-error" hidden></p>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary" id="save-catalog-position">Save Position</button>
+                <button type="button" class="btn btn-outline" id="cancel-catalog-position">Cancel</button>
+            </div>
+        </form>
+    </dialog>
+    <script src="/js/manpower-position-catalog.js?v=3" defer></script>
+<% } %>
 
 <%- include('../partials/layout-bottom') %>

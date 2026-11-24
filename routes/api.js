@@ -4,6 +4,7 @@ const { getDb } = require('../db/database');
 const { getUnreadCount, getNotifications, getMenuGlow } = require('../services/notification');
 const { validateAreaAccess } = require('../middleware/area-guard');
 const { handleEmployeeAbsence } = require('../services/btw');
+const { coordinatorRosterCondition } = require('../services/attendance-roster');
 const { logAction } = require('../services/audit');
 const { DateTime } = require('luxon');
 
@@ -247,13 +248,18 @@ router.post('/attendance/save', async (req, res) => {
             version = version + 1
     `);
 
+    const findEmployee = db.prepare(`
+        SELECT e.area_id FROM employees e
+        WHERE e.id = ? ${user.role === 'COORDINATOR' ? `AND ${coordinatorRosterCondition}` : ''}
+    `);
+
     for (const [empIdStr, data] of Object.entries(attendance)) {
         const empId = parseInt(empIdStr);
         if (!empId) continue;
         const status = (typeof data === 'string' ? data : (data.status || '')).toLowerCase();
         if (!validStatuses.includes(status)) continue;
 
-        const emp = (await db.prepare('SELECT area_id FROM employees WHERE id = ?').get(empId));
+        const emp = await findEmployee.get(empId);
         if (!emp || !validateAreaAccess(emp.area_id, req)) continue;
 
         const scheduleId = (typeof data === 'object' && data.schedule_id) ? parseInt(data.schedule_id) : null;

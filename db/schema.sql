@@ -466,3 +466,13 @@ CREATE TABLE IF NOT EXISTS incident_entries (
     INDEX idx_incident_entries (incident_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+CREATE TABLE IF NOT EXISTS masterlist_details (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    employee_id INT UNIQUE,
+    coordinator_id INT UNIQUE,
+    details JSON NOT NULL,
+    CHECK ((employee_id IS NULL) <> (coordinator_id IS NULL)),
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (coordinator_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

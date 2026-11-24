@@ -181,6 +181,7 @@ app.use(csrfProtection);
 app.use('/', require('./routes/auth'));
 app.use('/dashboard', require('./routes/dashboard'));
 app.use('/employees', require('./routes/employees'));
+app.use('/masterlist', require('./routes/masterlist'));
 app.use('/schedules', require('./routes/schedules'));
 app.use('/attendance', require('./routes/attendance'));
 app.use('/coordinator-attendance', require('./routes/coordinator-attendance'));
@@ -214,7 +215,7 @@ app.use((err, req, res, next) => {
     }
 
     if (req.path === '/login' || req.path === '/register' || (req.get('Referrer') && req.get('Referrer').includes('/login'))) {
-        req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+        req.flash('error', 'Incorrect username or password.');
         return res.redirect('/login');
     }
 

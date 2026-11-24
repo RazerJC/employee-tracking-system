@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { requireArea, validateAreaAccess } = require('../middleware/area-guard');
 const { getDb } = require('../db/database');
 const { handleEmployeeAbsence } = require('../services/btw');
+const { coordinatorRosterCondition } = require('../services/attendance-roster');
 const { logAction } = require('../services/audit');
 const { DateTime } = require('luxon');
 
@@ -20,7 +21,7 @@ router.get('/', requireAuth, requireArea, async (req, res) => {
     const selectedAreaId = user.role === 'COORDINATOR' ? req.userAreaId : (req.query.area_id ? parseInt(req.query.area_id) : null);
     const filterStatus = req.query.status || '';
 
-    let empWhere = ["e.status = 'active'"];
+    let empWhere = [isCoordinator ? coordinatorRosterCondition : "e.status = 'active'"];
     let empParams = [];
 
     if (selectedAreaId) {
@@ -199,6 +200,11 @@ router.post('/', requireAuth, requireArea, async (req, res) => {
     // Valid statuses from PHP system + existing
     const validStatuses = ['present', 'absent', 'no_work', 'leave', 'sent_home', 'rest_day', 'late', 'on_leave'];
 
+    const findEmployee = db.prepare(`
+        SELECT e.area_id FROM employees e
+        WHERE e.id = ? ${isCoordinator ? `AND ${coordinatorRosterCondition}` : ''}
+    `);
+
     // Iterate through submitted rows
     for (const [empIdStr, val] of Object.entries(attendance)) {
         // Non-numeric form keys prevent URL-encoded parsers compacting employee IDs into array indexes.
@@ -226,7 +232,7 @@ router.post('/', requireAuth, requireArea, async (req, res) => {
         if (!status || !validStatuses.includes(status)) continue;
 
         // Verify area permission
-        const emp = (await db.prepare('SELECT area_id FROM employees WHERE id = ?').get(empId));
+        const emp = await findEmployee.get(empId);
         if (!emp || !validateAreaAccess(emp.area_id, req)) {
             continue; // Skip unauthorized
         }

@@ -175,6 +175,93 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             const csv=await request('/reports/export?format=csv&date_from='+day+'&date_to='+day);
             assert.equal(csv.response.status,200); assert.match(csv.text,/SENT_HOME/);
         });
+        await t.test('coordinator can record attendance only after the worker reports to the office', async () => {
+            const worker = await db.prepare('SELECT id, employee_id, position_id FROM employees WHERE area_id = 1 AND status = ? LIMIT 1').get('active');
+            const day = require('luxon').DateTime.now().setZone('Asia/Manila').toISODate();
+            const department = (await db.prepare("INSERT INTO departments (area_id, name) VALUES (1, 'Office Deployment QA')").run()).lastInsertRowid;
+            const otherDepartment = (await db.prepare("INSERT INTO departments (area_id, name) VALUES (2, 'Other Warehouse QA')").run()).lastInsertRowid;
+            const requestId = (await db.prepare(`
+                INSERT INTO manpower_requests (area_id, requested_by, deployment_date, reason)
+                VALUES (1, 3, ?, 'Office report test')
+            `).run(day)).lastInsertRowid;
+            await db.prepare(`
+                INSERT INTO manpower_request_positions (request_id, position_id, quantity_requested)
+                VALUES (?, ?, 1)
+            `).run(requestId, worker.position_id);
+
+            await login('juan.delacruz@taascor.com', 'Coord123!');
+            const editUrl = `/manpower/${requestId}/edit`;
+            assert.match((await request(editUrl)).text, /Edit Manpower Request/);
+            const editValues = { deployment_date: day, reason: 'Updated office report test', priority: 'normal', [`positions[p_${worker.position_id}]`]: '2' };
+            assert.equal((await postForm(editUrl, editValues)).response.headers.get('location'), `/manpower/${requestId}`);
+            const position = await db.prepare('SELECT id, quantity_requested FROM manpower_request_positions WHERE request_id = ?').get(requestId);
+            assert.equal(position.quantity_requested, 2);
+
+            await login('hr.santos@taascor.com', 'HrUser123!');
+            const workerName = 'QA Office Arrival Worker';
+            assert.equal((await postForm(`/manpower/${requestId}/allocate`, {
+                request_position_id: position.id, worker_type: 'new', worker_name: workerName
+            })).response.headers.get('location'), `/manpower/${requestId}`);
+            const incoming = await db.prepare('SELECT id FROM manpower_allocations WHERE request_id = ? AND worker_name = ?').get(requestId, workerName);
+            const allocationId = (await db.prepare(`
+                INSERT INTO manpower_allocations (request_id, request_position_id, employee_id, allocated_by)
+                VALUES (?, ?, ?, 2)
+            `).run(requestId, position.id, worker.id)).lastInsertRowid;
+
+            await login('juan.delacruz@taascor.com', 'Coord123!');
+            assert.ok((await request('/manpower')).text.includes(`href="${editUrl}"`));
+            assert.equal((await request(editUrl)).response.status, 200);
+            const increased = { ...editValues, [`positions[p_${worker.position_id}]`]: '3' };
+            assert.equal((await postForm(editUrl, increased)).response.headers.get('location'), `/manpower/${requestId}`);
+            assert.equal((await db.prepare('SELECT quantity_requested FROM manpower_request_positions WHERE id = ?').get(position.id)).quantity_requested, 3);
+            const belowAssigned = { ...editValues, [`positions[p_${worker.position_id}]`]: '1' };
+            assert.equal((await postForm(editUrl, belowAssigned)).response.headers.get('location'), editUrl);
+            assert.equal((await db.prepare('SELECT quantity_requested FROM manpower_request_positions WHERE id = ?').get(position.id)).quantity_requested, 3);
+            const handoff = await request(`/manpower/${requestId}`);
+            assert.match(handoff.text, /QA Office Arrival Worker/);
+            assert.match(handoff.text, /Office Deployment QA/);
+            assert.doesNotMatch(handoff.text, /Other Warehouse QA/);
+            assert.doesNotMatch((await request('/masterlist')).text, /QA Office Arrival Worker/);
+            assert.doesNotMatch((await request('/attendance')).text, /QA Office Arrival Worker/);
+            const confirmIncoming = department_id => postForm(`/manpower/${requestId}/confirm-arrival`, {
+                allocation_id: incoming.id, department_id, status_decision: 'confirmed', shift_start: '08:00', shift_end: '17:00'
+            });
+            await confirmIncoming(otherDepartment);
+            assert.equal(await db.prepare('SELECT id FROM employees WHERE full_name = ?').get(workerName), undefined);
+            await confirmIncoming(department);
+            const deployed = await db.prepare('SELECT id, department_id, coordinator_id FROM employees WHERE full_name = ?').get(workerName);
+            assert.equal(deployed.department_id, department);
+            assert.equal(deployed.coordinator_id, 3);
+            assert.equal((await db.prepare('SELECT shift_start FROM employee_schedules WHERE employee_id = ? AND work_date = ?').get(deployed.id, day)).shift_start, '08:00');
+            for (const url of ['/attendance', '/employees', '/masterlist']) {
+                assert.match((await request(url)).text, /QA Office Arrival Worker/, url);
+            }
+
+            const saveForm = () => postForm('/attendance', { [`attendance[e_${worker.id}][status]`]: 'present' });
+            const saveApi = async () => {
+                const result = await request('/api/attendance/save', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ work_date: day, attendance: { [worker.id]: 'present' } })
+                });
+                return JSON.parse(result.text).saved;
+            };
+            const decide = status_decision => postForm(`/manpower/${requestId}/confirm-arrival`, {
+                allocation_id: allocationId, status_decision, department_id: department
+            });
+            assert.ok(!(await request('/attendance')).text.includes(worker.employee_id));
+            await saveForm();
+            assert.equal(await db.prepare('SELECT id FROM employee_attendance WHERE employee_id = ? AND work_date = ?').get(worker.id, day), undefined);
+            assert.equal(await saveApi(), 0);
+
+            assert.equal((await decide('did_not_report')).response.status, 302);
+            assert.ok(!(await request('/attendance')).text.includes(worker.employee_id));
+            assert.equal(await saveApi(), 0);
+
+            assert.equal((await decide('confirmed')).response.status, 302);
+            assert.ok((await request('/attendance')).text.includes(worker.employee_id));
+            assert.equal(await saveApi(), 1);
+        });
         await t.test('HR dashboard and detail pages render', async () => {
             await login('hr.santos@taascor.com','HrUser123!');
             for(const url of ['/dashboard','/btw/1','/concerns/1','/manpower/1','/employees/1','/profile','/admin/pending-coordinators']) {
@@ -270,6 +357,63 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             }
             const other=await db.prepare('SELECT id FROM employees WHERE area_id=2 LIMIT 1').get();
             assert.equal((await request(`/employees/${other.id}`)).response.status,403);
+            const createRequest = db.prepare(`
+                INSERT INTO manpower_requests (area_id, requested_by, deployment_date, reason)
+                VALUES (2, ?, '2026-09-18', 'Previous warehouse request')
+            `);
+            const owned = (await createRequest.run(3)).lastInsertRowid;
+            const unrelated = (await createRequest.run(4)).lastInsertRowid;
+            const position = await db.prepare('SELECT id FROM positions WHERE is_active = 1 LIMIT 1').get();
+            await db.prepare('INSERT INTO manpower_request_positions (request_id, position_id, quantity_requested) VALUES (?, ?, 1)').run(owned, position.id);
+            const list = await request('/manpower');
+            assert.ok(list.text.includes(`href="/manpower/${owned}/edit"`));
+            assert.ok(!list.text.includes(`href="/manpower/${unrelated}"`));
+            assert.equal((await request(`/manpower/${owned}`)).response.status, 200);
+            assert.equal((await request(`/manpower/${unrelated}`)).response.status, 403);
+            assert.equal((await request(`/manpower/${unrelated}/edit`)).response.status, 403);
+            const edit = await request(`/manpower/${owned}/edit`);
+            assert.equal(edit.response.status, 200);
+            assert.match(edit.text, /value="Warehouse B[^"]*" readonly/);
+            const update = await postForm(`/manpower/${owned}/edit`, {
+                deployment_date: '2026-09-18', reason: 'Updated previous warehouse request',
+                priority: 'normal', [`positions[p_${position.id}]`]: 2
+            });
+            assert.equal(update.response.headers.get('location'), `/manpower/${owned}`);
+            const saved = await db.prepare('SELECT area_id, reason FROM manpower_requests WHERE id = ?').get(owned);
+            assert.equal(saved.area_id, 2);
+            assert.equal(saved.reason, 'Updated previous warehouse request');
+            const positionEditUrl = `/manpower/${owned}/edit?section=positions`;
+            assert.ok((await request(`/manpower/${owned}`)).text.includes(`href="${positionEditUrl}"`));
+            const positionEdit = await request(positionEditUrl);
+            assert.match(positionEdit.text, /Save Positions/);
+            assert.doesNotMatch(positionEdit.text, /name="deployment_date"/);
+            const positionUpdate = await postForm(positionEditUrl, { [`positions[p_${position.id}]`]: 5, reason: 'Ignored in position edit' });
+            assert.equal(positionUpdate.response.headers.get('location'), `/manpower/${owned}#requested-positions`);
+            assert.equal((await db.prepare('SELECT quantity_requested FROM manpower_request_positions WHERE request_id = ?').get(owned)).quantity_requested, 5);
+            assert.equal((await db.prepare('SELECT reason FROM manpower_requests WHERE id = ?').get(owned)).reason, saved.reason);
+        });
+        await t.test('coordinator can manage the position catalog from the manpower form', async () => {
+            await login('juan.delacruz@taascor.com', 'Coord123!');
+            const url = '/manpower/position-catalog';
+            assert.match((await request('/manpower/new')).text, /Add Position/);
+            const created = await postForm(url, { action: 'create', title: 'QA Catalog Worker', description: 'Initial description' });
+            assert.equal(created.response.status, 201);
+            const { id } = JSON.parse(created.text).position;
+            assert.match((await request('/manpower/new')).text, /QA Catalog Worker/);
+            assert.equal((await postForm(url, { action: 'create', title: 'QA Catalog Worker' })).response.status, 409);
+            assert.equal((await postForm(url, { action: 'edit', position_id: id, title: 'QA Renamed Catalog Worker', description: 'Updated description' })).response.status, 200);
+            assert.match((await request('/manpower/new')).text, /QA Renamed Catalog Worker/);
+
+            const manpower = await postForm('/manpower', {
+                deployment_date: '2026-09-18', reason: 'Catalog test', priority: 'normal', [`positions[p_${id}]`]: 4
+            });
+            const requestUrl = manpower.response.headers.get('location');
+            assert.equal((await postForm(url, { action: 'archive', position_id: id })).response.status, 200);
+            assert.doesNotMatch((await request('/manpower/new')).text, /QA Renamed Catalog Worker/);
+            assert.match((await request(requestUrl)).text, /QA Renamed Catalog Worker/);
+            const oldRequest = await request(`${requestUrl}/edit?section=positions`);
+            assert.match(oldRequest.text, /QA Renamed Catalog Worker/);
+            assert.match(oldRequest.text, new RegExp(`name="positions\\[p_${id}\\]"[^>]*value="4"`));
         });
         await t.test('administrator can provision Head HR and Head HR can open the attendance monitor', async () => {
             await login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
@@ -367,6 +511,51 @@ test('MySQL migration, workflows, HTTP pages, and durable sessions', { skip: !pr
             assert.equal((await postForm(accountUrl+'/toggle-status',{})).response.status,302);
             await login(email,resetPassword);
             assert.equal((await request('/dashboard')).response.status,200);
+        });
+        await t.test('role-specific masterlists show and save all 37 template fields', async () => {
+            const other = await db.prepare(`
+                INSERT INTO employees (employee_id, first_name, last_name, full_name, area_id, coordinator_id, employment_start_date)
+                VALUES ('QA-MASTERLIST-OTHER', 'QA', 'Other Owner', 'QA Other Owner', 1, 4, '2026-09-16')
+            `).run();
+            const employee = await db.prepare('SELECT id, employment_start_date FROM employees WHERE coordinator_id=3 AND area_id=1 ORDER BY id LIMIT 1').get();
+            const employeeUrl = `/masterlist/${employee.id}/edit`;
+
+            function formFields(html) {
+                const fields = Object.fromEntries(Array.from(html.matchAll(/id="masterlist-([a-z_]+)" name="[a-z_]+"\s+type="[^"]+" value="([^"]*)"/g), ([, key, value]) => [key, value]));
+                assert.equal(Object.keys(fields).length, 37);
+                return fields;
+            }
+
+            await login('juan.delacruz@taascor.com', 'Coord123!');
+            const page = await request('/masterlist');
+            assert.equal(page.response.status, 200);
+            assert.match(page.text, /Employee Masterlist/);
+            assert.doesNotMatch(page.text, /Download Excel|QA Other Owner/);
+            assert.equal((await request(`/masterlist/${other.lastInsertRowid}/edit`)).response.status, 404);
+            const edit = await request(employeeUrl);
+            assert.equal(edit.response.status, 200);
+            const employeeForm = formFields(edit.text);
+            assert.equal(employeeForm.hire_date, employee.employment_start_date);
+            assert.equal((await postForm(employeeUrl, {...employeeForm, daily_salary:'bad'})).response.status, 400);
+            assert.equal((await postForm(employeeUrl, {...employeeForm, middle_name:'QA Middle', tin:'0012345', daily_salary:'550.25'})).response.headers.get('location'), '/masterlist');
+            assert.match((await request('/masterlist')).text, /QA Middle/);
+            assert.equal(formFields((await request(employeeUrl)).text).tin, '0012345');
+            assert.equal((await postForm(`/masterlist/${other.lastInsertRowid}/edit`, employeeForm)).response.status, 404);
+            assert.equal(await db.prepare('SELECT id FROM masterlist_details WHERE employee_id=?').get(other.lastInsertRowid), undefined);
+
+            await login('hr.santos@taascor.com', 'HrUser123!');
+            const hrPage = await request('/masterlist');
+            assert.equal(hrPage.response.status, 200);
+            assert.match(hrPage.text, /Coordinator Masterlist/);
+            assert.match(hrPage.text, /juan.delacruz@taascor.com/);
+            assert.doesNotMatch(hrPage.text, /QA Middle/);
+            const coordinatorUrl = '/masterlist/3/edit';
+            const coordinatorForm = formFields((await request(coordinatorUrl)).text);
+            assert.equal(coordinatorForm.email, 'juan.delacruz@taascor.com');
+            assert.equal((await postForm(coordinatorUrl, {...coordinatorForm, emergency_person:'QA Contact'})).response.headers.get('location'), '/masterlist');
+            assert.match((await request('/masterlist')).text, /QA Contact/);
+            jar.cookie = '';
+            assert.equal((await request('/masterlist')).response.headers.get('location'), '/login');
         });
     } finally {
         if(server) await new Promise(resolve=>server.close(resolve));

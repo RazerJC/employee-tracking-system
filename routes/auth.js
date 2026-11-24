@@ -43,19 +43,19 @@ router.post('/login', loginLimiter, async (req, res) => {
         }
     }
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-        req.flash('error', 'May mali sa username o password. Pakisuri at subukan muli.');
+        req.flash('error', 'Incorrect username or password.');
         return res.redirect('/login');
     }
 
     await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
     // Check account status
     if (user.status === 'suspended') {
-        req.flash('error', 'Naka-suspend ang account na ito. Mangyaring makipag-ugnayan sa HR o Administrator.');
+        req.flash('error', 'Account suspended. Contact HR or an administrator.');
         return res.redirect('/login');
     }
 
     if (user.status === 'rejected') {
-        req.flash('error', `Hindi naaprubahan ang registration: ${user.rejection_remarks || 'Not specified'}`);
+        req.flash('error', `Registration rejected: ${user.rejection_remarks || 'Not specified'}`);
         return res.redirect('/login');
     }
 
@@ -72,7 +72,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             role: user.role,
             status: 'pending'
         };
-        req.flash('warning', `Naka-pending pa ang iyong account. Naghihintay ito ng approval mula sa ${approverRole}.`);
+        req.flash('warning', `Your account is awaiting approval from ${approverRole}.`);
         return res.redirect('/pending');
     }
 
@@ -178,16 +178,16 @@ router.post('/register', async (req, res) => {
 
     // Role-specific notifications and messages
     if (chosenRole === 'COORDINATOR') {
-        await notifyRole('HR', 'Bagong Coordinator Registration', `Si ${full_name.trim()} ay nag-apply bilang Coordinator at naghihintay ng approval mula sa HR.`, '/admin/pending-coordinators');
-        await notifyRole('ADMIN', 'Bagong Coordinator Registration', `Si ${full_name.trim()} ay nag-apply bilang Coordinator at naghihintay ng approval mula sa HR.`, '/admin/pending-coordinators');
-        req.flash('success', 'Registration submitted! Ang iyong coordinator account ay naghihintay ng approval mula sa HR.');
+        await notifyRole('HR', 'New Coordinator Registration', `${full_name.trim()} applied for a coordinator account. HR approval is pending.`, '/admin/pending-coordinators');
+        await notifyRole('ADMIN', 'New Coordinator Registration', `${full_name.trim()} applied for a coordinator account. HR approval is pending.`, '/admin/pending-coordinators');
+        req.flash('success', 'Registration submitted. Awaiting HR approval.');
     } else if (chosenRole === 'HR') {
-        await notifyRole('HEAD_HR', 'Bagong HR Staff Registration', `Si ${full_name.trim()} ay nag-apply bilang HR Staff at naghihintay ng approval mula sa Head HR.`, '/admin/pending-coordinators');
-        await notifyRole('ADMIN', 'Bagong HR Staff Registration', `Si ${full_name.trim()} ay nag-apply bilang HR Staff at naghihintay ng approval mula sa Head HR.`, '/admin/pending-coordinators');
-        req.flash('success', 'Registration submitted! Ang iyong HR account ay naghihintay ng approval mula sa Head HR.');
+        await notifyRole('HEAD_HR', 'New HR Staff Registration', `${full_name.trim()} applied for an HR staff account. Head HR approval is pending.`, '/admin/pending-coordinators');
+        await notifyRole('ADMIN', 'New HR Staff Registration', `${full_name.trim()} applied for an HR staff account. Head HR approval is pending.`, '/admin/pending-coordinators');
+        req.flash('success', 'Registration submitted. Awaiting Head HR approval.');
     } else if (chosenRole === 'HEAD_HR') {
-        await notifyRole('ADMIN', 'Bagong Head HR Registration', `Si ${full_name.trim()} ay nag-apply bilang Head HR at naghihintay ng approval mula sa Administrator.`, '/admin/pending-coordinators');
-        req.flash('success', 'Registration submitted! Ang iyong Head HR account ay naghihintay ng approval mula sa System Administrator.');
+        await notifyRole('ADMIN', 'New Head HR Registration', `${full_name.trim()} applied for a Head HR account. Administrator approval is pending.`, '/admin/pending-coordinators');
+        req.flash('success', 'Registration submitted. Awaiting administrator approval.');
     }
 
     res.redirect('/login');

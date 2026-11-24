@@ -100,6 +100,9 @@
                                 <td><%- include('../partials/status-badge', { status: r.status }) %></td>
                                 <td class="text-right">
                                     <a href="/manpower/<%= r.id %>" class="btn btn-sm btn-primary">View Details</a>
+                                    <% if (r.canEdit) { %>
+                                        <a href="/manpower/<%= r.id %>/edit" class="btn btn-sm btn-outline">Edit Request</a>
+                                    <% } %>
                                 </td>
                             </tr>
                         <% }) %>

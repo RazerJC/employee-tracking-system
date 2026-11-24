@@ -42,6 +42,13 @@
                 <% } %>
             </a>
 
+            <% if (['HR', 'HEAD_HR', 'COORDINATOR'].includes(user.role)) { %>
+                <a href="/masterlist" class="nav-item <%= currentPath === '/masterlist' ? 'active' : '' %>">
+                    <span class="nav-icon"><%- include('outline-icon', {icon:'people'}) %></span>
+                    <span><%= user.role === 'COORDINATOR' ? 'Employee Masterlist' : 'Coordinator Masterlist' %></span>
+                </a>
+            <% } %>
+
             <a href="/departments" class="nav-item <%= currentPath.startsWith('/departments') ? 'active' : '' %> <%= isGlowing('/departments') ? 'nav-item-glowing' : '' %>" data-glow-path="/departments">
                 <span class="nav-icon"><%- include('outline-icon', {icon:'building'}) %></span>
                 <span>Departments</span>

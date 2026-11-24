@@ -1,0 +1,34 @@
+<%- include('../partials/layout-top') %>
+
+<div class="page-header">
+    <h2><%= title %></h2>
+</div>
+
+<% if (rows.length === 0) { %>
+    <p>No people are listed in this masterlist yet.</p>
+<% } else { %>
+    <div class="table-responsive masterlist-table" tabindex="0" role="region" aria-label="<%= title %>">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Action</th>
+                    <% for (const [header] of columns) { %>
+                        <th scope="col"><%= header %></th>
+                    <% } %>
+                </tr>
+            </thead>
+            <tbody>
+                <% for (const row of rows) { %>
+                    <tr>
+                        <td><a href="/masterlist/<%= row.id %>/edit" class="btn btn-outline" aria-label="Edit details for <%= row.full_name %>">Edit</a></td>
+                        <% for (const [, key] of columns) { %>
+                            <td><%= row[key] ?? '' %></td>
+                        <% } %>
+                    </tr>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
+<% } %>
+
+<%- include('../partials/layout-bottom') %>

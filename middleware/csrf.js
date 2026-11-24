@@ -19,7 +19,7 @@ function csrfProtection(req, res, next) {
     const submittedToken = req.body?._csrf || req.headers['x-csrf-token'] || req.query?._csrf;
 
     if (!submittedToken || submittedToken !== req.session.csrfToken) {
-        if (process.env.NODE_ENV === 'production') {
+        if (process.env.NODE_ENV === 'production' || req.path.startsWith('/masterlist/') || req.path === '/manpower/position-catalog') {
             const err = new Error('Invalid or expired CSRF token. Please refresh and try again.');
             err.code = 'EBADCSRFTOKEN';
             return next(err);

@@ -76,7 +76,7 @@ router.post('/approve-coordinator', requireAuth, requireAdminOrHR, async (req, r
     const { user_id, area_id, remarks } = req.body;
 
     if (!user_id) {
-        req.flash('error', 'Walang tinukoy na user para i-approve.');
+        req.flash('error', 'Select an account to approve.');
         return res.redirect('/admin/pending-coordinators');
     }
 
@@ -87,7 +87,7 @@ router.post('/approve-coordinator', requireAuth, requireAdminOrHR, async (req, r
     }
 
     if (!canApproveUser(approver.role, targetUser.role)) {
-        req.flash('error', `Hindi pinapayagan ang ${approver.role} na mag-approve ng ${targetUser.role} account.`);
+        req.flash('error', `${approver.role} cannot approve ${targetUser.role} accounts.`);
         return res.redirect('/admin/pending-coordinators');
     }
 
@@ -100,7 +100,7 @@ router.post('/approve-coordinator', requireAuth, requireAdminOrHR, async (req, r
         }
 
         if (!targetAreaId) {
-            req.flash('error', 'Kailangang piliin ang warehouse / area para sa coordinator bago i-approve.');
+            req.flash('error', 'Select a warehouse or area before approving this coordinator.');
             return res.redirect('/admin/pending-coordinators');
         }
 
@@ -152,7 +152,7 @@ router.post('/approve-coordinator', requireAuth, requireAdminOrHR, async (req, r
         console.error('Email error:', e.message);
     }
 
-    req.flash('success', `Matagumpay na na-approve ang ${targetUser.role} account ni ${targetUser.full_name}.`);
+    req.flash('success', `Approved ${targetUser.full_name}’s ${targetUser.role} account.`);
     res.redirect('/admin/pending-coordinators');
 });
 
@@ -163,7 +163,7 @@ router.post('/reject-coordinator', requireAuth, requireAdminOrHR, async (req, re
     const { user_id, rejection_remarks } = req.body;
 
     if (!user_id || !rejection_remarks) {
-        req.flash('error', 'Pakilagay ang dahilan ng rejection.');
+        req.flash('error', 'Enter a reason for rejection.');
         return res.redirect('/admin/pending-coordinators');
     }
 
@@ -174,7 +174,7 @@ router.post('/reject-coordinator', requireAuth, requireAdminOrHR, async (req, re
     }
 
     if (!canApproveUser(approver.role, targetUser.role)) {
-        req.flash('error', `Hindi pinapayagan ang ${approver.role} na mag-reject ng ${targetUser.role} account.`);
+        req.flash('error', `${approver.role} cannot reject ${targetUser.role} accounts.`);
         return res.redirect('/admin/pending-coordinators');
     }
 
@@ -186,7 +186,7 @@ router.post('/reject-coordinator', requireAuth, requireAdminOrHR, async (req, re
 
     await logAction(approver.id, 'REJECT_' + targetUser.role, 'users', targetUser.id, { remarks: rejection_remarks });
 
-    req.flash('success', `Tinanggihan ang registration ni ${targetUser.full_name}.`);
+    req.flash('success', `Rejected ${targetUser.full_name}’s registration.`);
     res.redirect('/admin/pending-coordinators');
 });
 
