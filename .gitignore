@@ -8,6 +8,7 @@ scratch/
 db/backups/
 .env.*
 !.env.example
+!.env.deploy.example
 db/legacy-sqlite/
 db/database-sqlite.js
 public/uploads/
