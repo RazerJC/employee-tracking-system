@@ -1,0 +1,17 @@
+<%
+    const maxCount = Math.max(1, ...bars.map(bar => bar.count));
+%>
+<% if (!bars.length) { %>
+    <p class="admin-chart-empty">No records for this warehouse.</p>
+<% } %>
+<div class="admin-bars">
+    <% bars.forEach(bar => { %>
+        <a class="admin-bar" href="<%= bar.href %>" <%= bar.selected ? 'aria-current=true' : '' %>>
+            <span class="admin-bar-label"><%= bar.label %><% if (bar.caption) { %><small><%= bar.caption %></small><% } %></span>
+            <strong><%= bar.count %></strong>
+            <span class="admin-bar-track" aria-hidden="true">
+                <span style="width: <%= bar.count / maxCount * 100 %>%"></span>
+            </span>
+        </a>
+    <% }); %>
+</div>

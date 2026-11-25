@@ -1,4 +1,5 @@
 const { getDb } = require('../db/database');
+const { DateTime } = require('luxon');
 
 /**
  * Calculates summary metrics for a manpower request
@@ -69,4 +70,53 @@ async function syncRequestStatus(requestId) {
     }
 }
 
-module.exports = { getManpowerSummary, syncRequestStatus };
+async function getManpowerDashboard(db, areaId) {
+    const today = DateTime.now().setZone('Asia/Manila').startOf('day');
+    const since = today.minus({ days: 6 });
+    const areaFilter = areaId ? 'AND mr.area_id = ?' : '';
+    const areaParams = areaId ? [areaId] : [];
+    const [requests, deployments] = await Promise.all([
+        db.prepare(`
+            SELECT mr.id, mr.status, mr.deployment_date, a.name AS area_name, u.full_name AS coordinator_name,
+                   (SELECT COALESCE(SUM(p.quantity_requested), 0)
+                    FROM manpower_request_positions p WHERE p.request_id = mr.id) AS requested,
+                   (SELECT COUNT(*) FROM manpower_allocations ma
+                    WHERE ma.request_id = mr.id AND ma.status = 'confirmed') AS confirmed
+            FROM manpower_requests mr
+            JOIN areas a ON a.id = mr.area_id
+            JOIN users u ON u.id = mr.requested_by
+            WHERE 1 = 1 ${areaFilter}
+            ORDER BY CASE WHEN mr.status IN ('filled', 'declined', 'cancelled') THEN 1 ELSE 0 END,
+                     mr.deployment_date DESC, mr.id DESC
+        `).all(...areaParams),
+        db.prepare(`
+            SELECT a.name AS area_name, d.name AS department_name,
+                   COUNT(*) AS confirmed, MAX(ma.confirmed_at) AS latest_confirmation
+            FROM manpower_allocations ma
+            JOIN manpower_requests mr ON mr.id = ma.request_id
+            JOIN areas a ON a.id = mr.area_id
+            LEFT JOIN employees e ON e.id = ma.employee_id AND e.area_id = mr.area_id
+            LEFT JOIN departments d ON d.id = e.department_id AND d.area_id = mr.area_id
+            WHERE ma.status = 'confirmed' AND ma.confirmed_at >= ? AND ma.confirmed_at < ? ${areaFilter}
+            GROUP BY a.id, a.name, d.id, d.name
+            ORDER BY latest_confirmation DESC, a.name, d.name
+        `).all(since.toUTC().toSQL({ includeOffset: false }), today.plus({ days: 1 }).toUTC().toSQL({ includeOffset: false }), ...areaParams)
+    ]);
+
+    return {
+        deployments,
+        requests: requests.map(request => {
+            const requested = Number(request.requested);
+            const confirmed = Number(request.confirmed);
+            const closed = ['declined', 'cancelled'].includes(request.status);
+            const percentage = requested ? Math.min(100, Math.floor(confirmed / requested * 1000) / 10) : null;
+            return {
+                ...request, requested, confirmed, percentage,
+                outcome: closed ? (request.status === 'declined' ? 'Declined' : 'Cancelled') :
+                    !requested ? 'No target' : confirmed >= requested ? 'Target met' : 'Target not met'
+            };
+        })
+    };
+}
+
+module.exports = { getManpowerSummary, syncRequestStatus, getManpowerDashboard };

@@ -74,6 +74,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const notifMenu = document.getElementById('notifMenu');
     const notifBadge = document.getElementById('notifCountBadge');
     const notifContainer = document.getElementById('notifItemsContainer');
+    const notifMarkAll = document.getElementById('notifMarkAllBtn');
+    const notifFeedback = document.getElementById('notifFeedback');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    notifMenu?.addEventListener('click', event => event.stopPropagation());
+    notifMarkAll?.addEventListener('click', async () => {
+        notifMarkAll.disabled = true;
+        notifFeedback.hidden = true;
+        try {
+            const response = await fetch('/notifications/mark-all-read', {
+                method: 'POST',
+                headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken }
+            });
+            if (!response.ok || !(await response.json()).success) throw new Error('Could not mark notifications as read');
+            notifContainer.querySelectorAll('.unread').forEach(item => item.classList.remove('unread'));
+            notifBadge?.classList.add('hidden');
+            await Promise.all([loadNotificationDropdown(), pollUnreadCount()]);
+        } catch {
+            notifFeedback.textContent = 'Unable to mark notifications as read. Please try again.';
+            notifFeedback.hidden = false;
+        } finally {
+            notifMarkAll.disabled = false;
+        }
+    });
 
     if (notifBellBtn && notifMenu) {
         notifBellBtn.addEventListener('click', async (e) => {
@@ -128,15 +152,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            notifContainer.innerHTML = data.notifications.map(n => `
-                <div class="notif-item ${n.is_read ? '' : 'unread'}">
-                    <div class="notif-title">
-                        ${n.link ? `<a href="${n.link}" style="color: inherit; text-decoration: underline;">${n.title}</a>` : n.title}
-                    </div>
-                    <div class="notif-msg">${n.message}</div>
-                    <div class="notif-time">${new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-            `).join('');
+            const items = data.notifications.map(notification => {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/notifications/' + Number(notification.id) + '/open';
+                const token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = '_csrf';
+                token.value = csrfToken;
+                const button = document.createElement('button');
+                button.type = 'submit';
+                button.className = notification.is_read ? 'notif-item notif-open' : 'notif-item notif-open unread';
+                const time = new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                for (const [className, value] of [['notif-title', notification.title], ['notif-msg', notification.message], ['notif-time', time]]) {
+                    const span = document.createElement('span');
+                    span.className = className;
+                    span.textContent = value;
+                    button.append(span);
+                }
+                form.append(token, button);
+                return form;
+            });
+            notifContainer.replaceChildren(...items);
         } catch (err) {
             notifContainer.innerHTML = '<div class="notif-empty">Unable to load notifications</div>';
         }

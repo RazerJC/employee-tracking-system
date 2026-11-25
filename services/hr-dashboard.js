@@ -1,5 +1,6 @@
 const { getDb } = require('../db/database');
 const { validDate, absenceCondition } = require('./employee-status');
+const { getManpowerDashboard } = require('./manpower');
 const { DateTime } = require('luxon');
 module.exports = async function hrDashboard(req, res) {
     const db = getDb();
@@ -40,9 +41,6 @@ module.exports = async function hrDashboard(req, res) {
         FROM users u LEFT JOIN coordinator_area_assignments x ON x.user_id=u.id AND x.is_current=1
         LEFT JOIN areas a ON a.id=x.area_id LEFT JOIN coordinator_attendance ca ON ca.user_id=u.id AND ca.work_date=?
         WHERE u.role='COORDINATOR' AND u.status='active' ORDER BY u.full_name`).all(date);
-    const manpower = await db.prepare(`SELECT mr.id,mr.status,a.name AS area_name,mr.deployment_date,
-        (SELECT COALESCE(SUM(quantity_requested),0) FROM manpower_request_positions WHERE request_id=mr.id) AS total_requested
-        FROM manpower_requests mr JOIN areas a ON a.id=mr.area_id
-        WHERE mr.status NOT IN ('filled','declined','cancelled') ORDER BY mr.deployment_date,mr.id LIMIT 5`).all();
-    res.render('dashboard/hr', { title: 'HR Dashboard - TAASCOR', date, monthStart, monthEnd, employees, departments: [...departments.values()], alerts, coordinators, manpower });
+    const manpowerDashboard = await getManpowerDashboard(db);
+    res.render('dashboard/hr', { title: 'HR Dashboard - TAASCOR', date, monthStart, monthEnd, employees, departments: [...departments.values()], alerts, coordinators, manpowerDashboard });
 };

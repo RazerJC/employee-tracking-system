@@ -1,0 +1,60 @@
+<section class="card mb-3" aria-labelledby="recent-deployments-title">
+    <div class="card-header"><h3 id="recent-deployments-title">New Deployments</h3></div>
+    <div class="card-body">
+        <p class="text-muted">Confirmed arrivals in the last 7 calendar days (Manila time). Department reflects the worker’s current assignment in that warehouse.</p>
+        <% if (!manpowerDashboard.deployments.length) { %>
+            <p>No confirmed deployments in this period.</p>
+        <% } else { %>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead><tr><th>Warehouse</th><th>Current Department</th><th>Confirmed Arrivals</th><th>Latest Confirmation</th></tr></thead>
+                    <tbody>
+                        <% manpowerDashboard.deployments.forEach(deployment => { %>
+                            <tr>
+                                <td><%= deployment.area_name %></td>
+                                <td><%= deployment.department_name || 'No current department in this warehouse' %></td>
+                                <td><strong><%= deployment.confirmed %></strong></td>
+                                <td><%= formatDateTime(deployment.latest_confirmation) %></td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+    </div>
+</section>
+
+<section class="card mb-3" aria-labelledby="manpower-fulfillment-title">
+    <div class="card-header">
+        <h3 id="manpower-fulfillment-title">Manpower Fulfillment</h3>
+        <a href="/manpower" class="btn btn-sm btn-outline">View Requests</a>
+    </div>
+    <div class="card-body">
+        <% if (!manpowerDashboard.requests.length) { %>
+            <p>No manpower requests to show.</p>
+        <% } else { %>
+            <div class="table-responsive" style="max-height: 24rem; overflow: auto;" tabindex="0" role="region" aria-label="Manpower request fulfillment">
+                <table class="data-table">
+                    <thead><tr><th>Request</th><th>Coordinator</th><th>Warehouse</th><th>Confirmed / Requested</th><th>Fulfillment</th><th>Outcome</th></tr></thead>
+                    <tbody>
+                        <% manpowerDashboard.requests.forEach(request => { %>
+                            <tr>
+                                <td><a href="/manpower/<%= request.id %>">#<%= request.id %></a><br><small><%= formatDate(request.deployment_date) %></small></td>
+                                <td><%= request.coordinator_name %></td>
+                                <td><%= request.area_name %></td>
+                                <td><%= request.confirmed %> / <%= request.requested %></td>
+                                <td>
+                                    <% if (request.percentage === null) { %>—<% } else { %>
+                                        <progress max="100" value="<%= request.percentage %>" aria-label="Fulfillment for request <%= request.id %>"></progress>
+                                        <strong><%= request.percentage %>%</strong>
+                                    <% } %>
+                                </td>
+                                <td><%= request.outcome %></td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+    </div>
+</section>

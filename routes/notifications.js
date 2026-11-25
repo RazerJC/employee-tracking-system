@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { getNotifications, markAsRead, markAllAsRead } = require('../services/notification');
+const { getDb } = require('../db/database');
 
 // GET /notifications
 router.get('/', requireAuth, async (req, res) => {
@@ -12,6 +13,19 @@ router.get('/', requireAuth, async (req, res) => {
         title: 'Notifications - TAASCOR',
         notifications
     });
+});
+
+router.post('/:id/open', requireAuth, async (req, res) => {
+    const userId = req.session.user.id;
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return res.redirect(303, '/notifications');
+    const notification = await getDb().prepare('SELECT link FROM notifications WHERE id = ? AND user_id = ?').get(id, userId);
+    if (!notification) return res.redirect(303, '/notifications');
+    await markAsRead(id, userId);
+    const link = notification.link;
+    const destination = typeof link === 'string' && /^\/(?![\/\\])/.test(link) && !/[\\\r\n\t]/.test(link)
+        ? link : '/notifications';
+    res.redirect(303, destination);
 });
 
 // POST /notifications/:id/read

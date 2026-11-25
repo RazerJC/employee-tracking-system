@@ -29,11 +29,15 @@
             <div class="dropdown-menu notif-dropdown" id="notifMenu">
                 <div class="notif-header">
                     <span>Notifications</span>
-                    <a href="/notifications" style="color: var(--color-primary); text-decoration: underline;">View All</a>
+                    <div class="notif-header-actions">
+                        <button type="button" class="notif-link-button" id="notifMarkAllBtn">Mark all as read</button>
+                        <a href="/notifications">View All</a>
+                    </div>
                 </div>
                 <div id="notifItemsContainer">
                     <div class="loading"><div class="spinner"></div> Loading...</div>
                 </div>
+                <p id="notifFeedback" role="status" class="notif-empty" hidden></p>
             </div>
         </div>
 

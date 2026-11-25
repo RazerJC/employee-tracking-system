@@ -177,14 +177,17 @@ app.use(attachArea);
 // CSRF Protection
 app.use(csrfProtection);
 
+const { requireRole } = require('./middleware/auth');
+const requireOperationsAccess = requireRole('HR', 'HEAD_HR', 'COORDINATOR');
+
 // Mount Routes
 app.use('/', require('./routes/auth'));
 app.use('/dashboard', require('./routes/dashboard'));
 app.use('/employees', require('./routes/employees'));
 app.use('/masterlist', require('./routes/masterlist'));
-app.use('/schedules', require('./routes/schedules'));
-app.use('/attendance', require('./routes/attendance'));
-app.use('/coordinator-attendance', require('./routes/coordinator-attendance'));
+app.use('/schedules', requireOperationsAccess, require('./routes/schedules'));
+app.use('/attendance', requireOperationsAccess, require('./routes/attendance'));
+app.use('/coordinator-attendance', requireOperationsAccess, require('./routes/coordinator-attendance'));
 app.use('/concerns', require('./routes/concerns'));
 app.use('/btw', require('./routes/btw'));
 app.use('/manpower', require('./routes/manpower'));
@@ -192,7 +195,7 @@ app.use('/incidents', require('./routes/incidents'));
 app.use('/notifications', require('./routes/notifications'));
 app.use('/admin', require('./routes/admin'));
 app.use('/departments', require('./routes/departments'));
-app.use('/reports', require('./routes/reports'));
+app.use('/reports', requireOperationsAccess, require('./routes/reports'));
 app.use('/api', require('./routes/api'));
 
 // 404 handler

@@ -26,6 +26,7 @@ router.get('/notifications/latest', async (req, res) => {
 // GET /api/schedules/check-conflict
 router.get('/schedules/check-conflict', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.session.user.role === 'ADMIN') return res.status(403).json({ error: 'Access denied' });
     const { employee_id, work_date } = req.query;
     if (!employee_id || !work_date) return res.json({ conflict: false });
 
@@ -224,6 +225,7 @@ router.post('/attendance/save', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ success: false, error: 'Unauthorized' });
     const user = req.session.user;
     const db = getDb();
+    if (user.role === 'ADMIN') return res.status(403).json({ success: false, error: 'Access denied' });
     const { work_date, attendance } = req.body;
 
     if (!work_date || !attendance || typeof attendance !== 'object') {

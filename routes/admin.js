@@ -482,8 +482,7 @@ router.get('/staff/:id', requireAuth, requireAdmin, async (req,res) => {
  const db=getDb();
  const staff=await db.prepare("SELECT id,full_name,email,role,status,phone,bio,profile_photo,created_at,last_login_at FROM users WHERE id=? AND role IN ('HR','HEAD_HR','COORDINATOR')").get(Number(req.params.id)||0);
  if(!staff) return res.status(404).render('error',{title:'Staff not found',message:'Staff account not found.',code:404});
- const attendance=await db.prepare('SELECT work_date,time_in,time_out FROM coordinator_attendance WHERE user_id=? ORDER BY work_date DESC LIMIT 30').all(staff.id);
  const activities=await db.prepare('SELECT action,entity_type,entity_id,created_at FROM audit_logs WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 50').all(staff.id);
- res.render('admin/staff-profile',{title:'Staff Profile - TAASCOR',staff,attendance,activities});
+ res.render('admin/staff-profile',{title:'Staff Profile - TAASCOR',staff,activities});
 });
 module.exports = router;

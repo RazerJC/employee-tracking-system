@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= typeof title !== 'undefined' ? title : 'TAASCOR ETS' %></title>
-    <link rel="stylesheet" href="/css/style.css?v=3">
+    <link rel="stylesheet" href="/css/style.css?v=4">
     <link rel="stylesheet" href="/css/workspace.css">
     <link rel="stylesheet" href="/css/dashboard-theme.css">
+    <% if (typeof pageStylesheet !== 'undefined') { %><link rel="stylesheet" href="<%= pageStylesheet %>"><% } %>
     <link rel="icon" href="/images/taascor-official-logo.png" type="image/png">
     <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
 </head>

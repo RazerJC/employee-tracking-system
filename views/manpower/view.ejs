@@ -289,69 +289,70 @@ function checkPositionChange(select) {
 }
 </script>
 
-<!-- HR Action: Assign Workers (HR / ADMIN only) -->
 <% if (['HR', 'ADMIN'].includes(user.role) && !['filled', 'cancelled', 'declined'].includes(request.status)) { %>
-    <div class="card mb-3" style="border: 2px solid var(--color-primary);">
-        <div class="card-header" style="background: rgba(27,42,74,0.05);">
-            <h3>Send a Worker to the Coordinator</h3>
-        </div>
+    <%
+        const openPositions = requestedPositions.map(position => ({
+            ...position,
+            remaining: Number(position.quantity_requested) - allocations.filter(allocation =>
+                allocation.request_position_id === position.id && ['proposed', 'confirmed'].includes(allocation.status)).length
+        })).filter(position => position.remaining > 0);
+    %>
+    <div class="card mb-3">
+        <div class="card-header"><h3>Send Workers to the Coordinator</h3></div>
         <div class="card-body">
-            <form action="/manpower/<%= request.id %>/allocate" method="POST">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-
-                <div class="form-group">
-                    <label for="request_position_id">For Requested Position Slot <span class="required">*</span></label>
-                    <select id="request_position_id" name="request_position_id" class="form-control" required>
-                        <% requestedPositions.forEach(p => { %>
-                            <option value="<%= p.id %>"><%= p.position_title %> (Needs <%= p.quantity_requested %>)</option>
-                        <% }) %>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Worker Sourcing Method</label>
-                        <div style="display: flex; gap: 16px; margin-top: 8px;">
-                            <label class="form-check" style="cursor: pointer;">
-                                <input type="radio" name="worker_type" value="new" checked onclick="toggleWorkerSource('new')">
-                                <span>Incoming / External Candidate</span>
-                            </label>
-                            <label class="form-check" style="cursor: pointer;">
-                                <input type="radio" name="worker_type" value="existing" onclick="toggleWorkerSource('existing')">
-                                <span>Existing Employee Transfer</span>
-                            </label>
-                        </div>
+            <% if (!openPositions.length) { %>
+                <p>All requested slots have been assigned. Awaiting arrival confirmation.</p>
+            <% } else { %>
+                <form action="/manpower/<%= request.id %>/allocate" method="POST" id="worker-batch">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <div class="worker-batch-toolbar">
+                        <p id="worker-batch-count" class="text-muted" style="margin: 0;" aria-live="polite"></p>
+                        <button type="button" class="btn btn-outline" id="add-worker">Add Worker</button>
                     </div>
-                </div>
-
-                <div class="form-group" id="incomingWorkerGroup">
-                    <label for="worker_name">Candidate Full Name <span class="required">*</span></label>
-                    <input type="text" id="worker_name" name="worker_name" class="form-control" placeholder="e.g. Rolando Bautista">
-                </div>
-
-                <div class="form-group" id="existingEmployeeGroup" style="display: none;">
-                    <label for="existing_employee_id">Select Existing Employee</label>
-                    <select id="existing_employee_id" name="existing_employee_id" class="form-control">
-                        <option value="">— Select Employee —</option>
-                        <% availableEmployees.forEach(emp => { %>
-                            <option value="<%= emp.id %>"><%= emp.full_name %> (<%= emp.employee_id %>)</option>
-                        <% }) %>
-                    </select>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                    Send Worker
-                </button>
-            </form>
+                    <div id="worker-batch-rows">
+                        <fieldset class="worker-batch-entry" data-worker-row>
+                            <legend>Worker 1</legend>
+                            <div class="worker-batch-fields">
+                                <label class="form-group">Requested Position
+                                    <select name="workers[0][request_position_id]" data-field="request_position_id" class="form-control" required>
+                                        <% openPositions.forEach(position => { %>
+                                            <option value="<%= position.id %>" data-remaining="<%= position.remaining %>"><%= position.position_title %> (<%= position.remaining %> open)</option>
+                                        <% }); %>
+                                    </select>
+                                </label>
+                                <label class="form-group">Worker Source
+                                    <select name="workers[0][worker_type]" data-field="worker_type" class="form-control">
+                                        <option value="new">Incoming / External Candidate</option>
+                                        <option value="existing">Existing Employee Transfer</option>
+                                    </select>
+                                </label>
+                                <div class="worker-batch-candidate">
+                                    <label class="form-group" data-worker-source="new">Candidate Full Name
+                                        <input type="text" name="workers[0][worker_name]" data-field="worker_name" class="form-control" maxlength="191" placeholder="e.g. Rolando Bautista" required>
+                                    </label>
+                                    <label class="form-group" data-worker-source="existing" hidden>Select Existing Employee
+                                        <select name="workers[0][existing_employee_id]" data-field="existing_employee_id" class="form-control" disabled>
+                                            <option value="">Select employee</option>
+                                            <% availableEmployees.forEach(employee => { %>
+                                                <option value="<%= employee.id %>"><%= employee.full_name %> (<%= employee.employee_id %>)</option>
+                                            <% }); %>
+                                        </select>
+                                    </label>
+                                </div>
+                                <button type="button" class="btn btn-outline worker-batch-remove" data-remove-worker aria-label="Remove Worker 1" title="Remove worker">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <path d="M3 6h18M9 6V4h6v2m4 0-1 14H6L5 6m5 4v6m4-6v6"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </fieldset>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="send-workers">Send Workers</button>
+                </form>
+                <script src="/js/manpower-worker-batch.js"></script>
+            <% } %>
         </div>
     </div>
-
-    <script>
-    function toggleWorkerSource(type) {
-        document.getElementById('incomingWorkerGroup').style.display = type === 'new' ? 'block' : 'none';
-        document.getElementById('existingEmployeeGroup').style.display = type === 'existing' ? 'block' : 'none';
-    }
-    </script>
 <% } %>
 
 <!-- Communication Thread -->

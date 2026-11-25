@@ -29,13 +29,10 @@
                     <div class="notif-item <%= n.is_read ? '' : 'unread' %>" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 20px;">
                         <div style="flex: 1;">
                             <div class="notif-title" style="font-size: 0.9rem; margin-bottom: 4px;">
-                                <% if (n.link) { %>
-                                    <a href="<%= n.link %>" style="color: inherit; text-decoration: underline;">
-                                        <%= n.title %>
-                                    </a>
-                                <% } else { %>
-                                    <%= n.title %>
-                                <% } %>
+                                <form action="/notifications/<%= n.id %>/open" method="POST">
+                                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                    <button type="submit" class="notif-link-button"><%= n.title %></button>
+                                </form>
                             </div>
                             <div class="notif-msg" style="font-size: 0.85rem; color: var(--color-gray-600);"><%= n.message %></div>
                             <div class="notif-time" style="margin-top: 6px;"><%= formatDateTime(n.created_at) %></div>

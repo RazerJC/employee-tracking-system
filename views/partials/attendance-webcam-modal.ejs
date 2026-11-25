@@ -300,7 +300,7 @@
             </div>
 
             <!-- Camera Status Message -->
-            <div class="camera-status" id="cameraStatus">
+            <div class="camera-status" id="cameraStatus" role="status">
                 <span>🎥</span>
                 <span>Live Camera Active — Align face within guide and tap Capture</span>
             </div>
@@ -523,27 +523,46 @@ function closeWebcam() {
     activeCapturedDataUri = null;
 }
 
-function waitForCameraFrame(video) {
+function waitForCameraFrame(video, track) {
     return new Promise((resolve, reject) => {
-        let frameRequest;
-        const timer = setTimeout(() => finish(new Error('Camera preview timed out')), 3500);
+        let playing = false;
+        const readinessEvents = ['loadeddata', 'canplay', 'playing'];
+        const timer = setTimeout(() => finish(new Error('Camera preview timed out')), 10000);
         function finish(error) {
             clearTimeout(timer);
-            video.removeEventListener('playing', onPlaying);
-            if (frameRequest !== undefined) video.cancelVideoFrameCallback(frameRequest);
+            readinessEvents.forEach(event => video.removeEventListener(event, checkFrame));
+            track.removeEventListener('unmute', checkFrame);
             if (error) reject(error);
             else resolve();
         }
-        function onPlaying() {
-            if (video.readyState >= 2 && video.videoWidth > 0) finish();
+        function checkFrame() {
+            if (playing && track.readyState === 'live' && !track.muted &&
+                video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) finish();
         }
-        if (video.requestVideoFrameCallback) {
-            frameRequest = video.requestVideoFrameCallback(() => finish());
-        } else {
-            video.addEventListener('playing', onPlaying);
-            onPlaying();
-        }
-        video.play().catch(finish);
+        readinessEvents.forEach(event => video.addEventListener(event, checkFrame));
+        track.addEventListener('unmute', checkFrame);
+        video.play().then(() => {
+            playing = true;
+            checkFrame();
+        }, finish);
+    });
+}
+
+function requestCamera(profile) {
+    return new Promise((resolve, reject) => {
+        let timedOut = false;
+        const timer = setTimeout(() => {
+            timedOut = true;
+            reject(new DOMException('Camera access timed out', 'TimeoutError'));
+        }, 20000);
+        navigator.mediaDevices.getUserMedia({ video: profile, audio: false }).then(stream => {
+            clearTimeout(timer);
+            if (timedOut) stream.getTracks().forEach(track => track.stop());
+            else resolve(stream);
+        }, error => {
+            clearTimeout(timer);
+            reject(error);
+        });
     });
 }
 
@@ -561,25 +580,39 @@ async function startWebcamCamera() {
     status.textContent = 'Starting camera preview...';
 
     if (!navigator.mediaDevices?.getUserMedia) {
+        status.className = 'camera-status error';
         status.textContent = 'Camera requires HTTPS or localhost and a supported browser.';
         return;
     }
 
     const profiles = [
-        { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } },
+        { facingMode: { ideal: 'user' }, width: { ideal: 640 }, height: { ideal: 480 } },
         true
     ];
+    let cameraError;
     for (const profile of profiles) {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: profile, audio: false });
+            const stream = await requestCamera(profile);
             if (revision !== cameraRevision) {
                 stream.getTracks().forEach(track => track.stop());
                 return;
             }
             activeWebcamStream = stream;
+            const [track] = stream.getVideoTracks();
+            if (!track) throw new DOMException('No video track', 'NotFoundError');
+            video.muted = true;
             video.srcObject = stream;
-            await waitForCameraFrame(video);
+            await waitForCameraFrame(video, track);
             if (revision !== cameraRevision) return;
+            track.addEventListener('ended', () => {
+                if (revision !== cameraRevision || activeWebcamStream !== stream) return;
+                stopWebcamCamera();
+                if (capture.disabled) return;
+                capture.disabled = true;
+                status.className = 'camera-status error';
+                status.textContent = 'The camera disconnected. Reconnect it and retry.';
+                retry.hidden = false;
+            }, { once: true });
             status.className = 'camera-status success';
             status.textContent = 'Camera ready. Align your face and tap Capture.';
             capture.disabled = false;
@@ -587,12 +620,20 @@ async function startWebcamCamera() {
         } catch (error) {
             if (revision !== cameraRevision) return;
             stopWebcamCamera();
-            if (error.name === 'NotAllowedError' || error.name === 'SecurityError') break;
+            cameraError = error.name;
+            if (['NotAllowedError', 'SecurityError', 'TimeoutError'].includes(cameraError)) break;
         }
     }
 
+    const messages = {
+        NotAllowedError: 'Camera access was blocked. Allow Camera in this site’s browser settings and in Windows privacy settings, then retry.',
+        SecurityError: 'Camera access is disabled by the browser or device. Enable access and retry.',
+        NotFoundError: 'No camera was found. Connect or enable your webcam, then retry.',
+        NotReadableError: 'The camera could not start. Close other apps or tabs using it and check the webcam privacy switch, then retry.',
+        TimeoutError: 'Camera access timed out. Check for a permission prompt near the address bar, then retry.'
+    };
     status.className = 'camera-status error';
-    status.textContent = 'No camera preview. Check camera permissions or close other apps using it, then retry.';
+    status.textContent = messages[cameraError] || 'The camera did not send a preview. Check the webcam privacy switch and close other apps using it, then retry.';
     retry.hidden = false;
 }
 

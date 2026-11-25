@@ -362,3 +362,50 @@
     }
 }
 
+
+/* HR worker batch entry */
+.workspace-app .worker-batch-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.workspace-app .worker-batch-entry {
+    min-width: 0;
+    margin: 0 0 8px;
+    padding: 4px 10px 9px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 8px;
+}
+.workspace-app .worker-batch-entry legend {
+    padding-inline: 4px;
+    font-size: .8rem;
+    font-weight: 600;
+}
+.workspace-app .worker-batch-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr) auto;
+    align-items: end;
+    gap: 8px;
+}
+.workspace-app .worker-batch-fields .form-group {
+    min-width: 0;
+    margin: 0;
+    font-size: .82rem;
+}
+.workspace-app .worker-batch-fields .form-control {
+    min-height: 38px;
+    padding-block: 6px;
+}
+.workspace-app .worker-batch-remove {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+}
+@media (max-width: 900px) {
+    .workspace-app .worker-batch-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+    .workspace-app .worker-batch-candidate { grid-column: 1 / 3; }
+}

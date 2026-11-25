@@ -32,6 +32,7 @@
         <label for="status">Status</label>
         <select id="status" name="status" class="form-control" onchange="this.form.submit()">
             <option value="">All Statuses</option>
+                <option value="pending" <%= statusFilter === 'pending' ? 'selected' : '' %>>Pending / Active</option>
             <option value="submitted" <%= statusFilter === 'submitted' ? 'selected' : '' %>>Submitted</option>
             <option value="under_review" <%= statusFilter === 'under_review' ? 'selected' : '' %>>Under Review</option>
             <option value="partially_filled" <%= statusFilter === 'partially_filled' ? 'selected' : '' %>>Partially Filled</option>

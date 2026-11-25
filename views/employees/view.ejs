@@ -105,7 +105,7 @@
     </div>
 </div>
 
-<!-- Historical Attendance Summary & Recent Records -->
+<% if (showAttendance) { %>
 <div class="card mb-3">
     <div class="card-header">
         <h3>📋 Attendance History</h3>
@@ -171,6 +171,8 @@
         </div>
     </div>
 </div>
+
+<% } %>
 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
     <!-- Back-to-Work Clearance Cases -->

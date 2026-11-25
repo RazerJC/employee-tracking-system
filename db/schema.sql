@@ -255,6 +255,19 @@ CREATE TABLE IF NOT EXISTS concern_reports (
     INDEX idx_concern_area (area_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS concern_decisions (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    concern_id INT NOT NULL,
+    decided_by INT NOT NULL,
+    policy_violation VARCHAR(255) NOT NULL,
+    sanction VARCHAR(255) NOT NULL,
+    work_status VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (concern_id) REFERENCES concern_reports(id),
+    FOREIGN KEY (decided_by) REFERENCES users(id),
+    INDEX idx_concern_decisions_history (concern_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS concern_entries (
 
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,

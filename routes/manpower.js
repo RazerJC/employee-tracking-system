@@ -3,6 +3,8 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { validateAreaAccess } = require('../middleware/area-guard');
 const { getDb } = require('../db/database');
+const { pendingCategories } = require('../services/pending-work');
+const pendingStatuses = pendingCategories.find(category => category.path === '/manpower').statuses;
 const { logAction } = require('../services/audit');
 const { notifyHR, createNotification } = require('../services/notification');
 const { getManpowerSummary, syncRequestStatus } = require('../services/manpower');
@@ -102,7 +104,10 @@ router.get('/', requireAuth, async (req, res) => {
         params.push(selectedAreaId);
     }
 
-    if (statusFilter) {
+    if (statusFilter === 'pending') {
+        where.push('mr.status IN (' + pendingStatuses.map(() => '?').join(', ') + ')');
+        params.push(...pendingStatuses);
+    } else if (statusFilter) {
         where.push('mr.status = ?');
         params.push(statusFilter);
     }
@@ -442,81 +447,100 @@ router.post('/:id/reply', requireAuth, async (req, res) => {
     res.redirect(`/manpower/${id}`);
 });
 
-// POST /manpower/:id/allocate (HR assigns named workers)
+// POST /manpower/:id/allocate (HR sends a batch of workers)
 router.post('/:id/allocate', requireAuth, async (req, res) => {
     const user = req.session.user;
-    if (user.role !== 'HR' && user.role !== 'ADMIN') {
+    if (!['HR', 'ADMIN'].includes(user.role)) {
         return res.status(403).render('error', { title: 'Access Denied', message: 'Only HR can assign workers.', code: 403 });
     }
 
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return res.redirect('/manpower');
+    const destination = `/manpower/${id}`;
     const db = getDb();
-    const id = parseInt(req.params.id);
-    const { request_position_id, worker_type, existing_employee_id, worker_name } = req.body;
-
-    const request = (await db.prepare('SELECT * FROM manpower_requests WHERE id = ?').get(id));
-    if (!request) {
-        req.flash('error', 'Request not found.');
-        return res.redirect('/manpower');
+    const submitted = req.body.workers;
+    const rows = submitted === undefined ? [req.body] : submitted && typeof submitted === 'object' ? Object.values(submitted) : [];
+    if (!rows.length || rows.some(row => !row || typeof row !== 'object')) {
+        req.flash('error', 'Add at least one worker.');
+        return res.redirect(destination);
     }
 
-    let assignedEmpId = null;
-    let nameStr = null;
+    const error = await db.transaction(async () => {
+        const request = await db.prepare('SELECT status, requested_by FROM manpower_requests WHERE id = ? FOR UPDATE').get(id);
+        if (!request || ['filled', 'declined', 'cancelled'].includes(request.status)) return 'Select an open manpower request.';
 
-    if (worker_type === 'existing') {
-        if (!existing_employee_id) {
-            req.flash('error', 'Please select an existing employee.');
-            return res.redirect(`/manpower/${id}`);
-        }
-        assignedEmpId = parseInt(existing_employee_id);
-        const emp = await db.prepare("SELECT full_name FROM employees WHERE id = ? AND status = 'active'").get(assignedEmpId || 0);
-        if (!emp) {
-            req.flash('error', 'Select an active employee.');
-            return res.redirect(`/manpower/${id}`);
-        }
-        nameStr = emp.full_name;
-    } else {
-        if (typeof worker_name !== 'string' || !worker_name.trim() || worker_name.trim().length > 191) {
-            req.flash('error', 'Please provide the incoming worker name.');
-            return res.redirect(`/manpower/${id}`);
-        }
-        nameStr = worker_name.trim();
-    }
+        const positions = await db.prepare(`
+            SELECT mrp.id, p.title, mrp.quantity_requested,
+                   (SELECT COUNT(*) FROM manpower_allocations ma
+                    WHERE ma.request_position_id = mrp.id AND ma.status IN ('proposed', 'confirmed')) AS assigned
+            FROM manpower_request_positions mrp JOIN positions p ON p.id = mrp.position_id
+            WHERE mrp.request_id = ?
+        `).all(id);
+        const remaining = new Map(positions.map(position => [position.id, {
+            title: position.title, count: Number(position.quantity_requested) - Number(position.assigned)
+        }]));
+        const alreadyAssigned = await db.prepare(`
+            SELECT employee_id FROM manpower_allocations
+            WHERE request_id = ? AND employee_id IS NOT NULL AND status IN ('proposed', 'confirmed')
+        `).all(id);
+        const employeeIds = new Set(alreadyAssigned.map(allocation => allocation.employee_id));
+        const workers = [];
 
-    const allocationId = await db.transaction(async () => {
-        const current = await db.prepare('SELECT status FROM manpower_requests WHERE id = ? FOR UPDATE').get(id);
-        if (!current || ['filled', 'declined', 'cancelled'].includes(current.status)) return null;
-        const position = await db.prepare('SELECT id FROM manpower_request_positions WHERE id = ? AND request_id = ?')
-            .get(Number(request_position_id) || 0, id);
-        if (!position) return null;
-        const allocation = await db.prepare(`
+        for (const [index, row] of rows.entries()) {
+            const positionId = Number(row.request_position_id);
+            const slot = remaining.get(positionId);
+            if (!slot) return `Worker ${index + 1}: select a requested position.`;
+            if (slot.count <= 0) return `The batch exceeds the remaining slots for ${slot.title}. Remove a worker or choose another position.`;
+
+            let employeeId = null;
+            let name;
+            if (row.worker_type === 'existing') {
+                employeeId = Number(row.existing_employee_id) || 0;
+                if (employeeIds.has(employeeId)) return `Worker ${index + 1}: this employee is already on the request or in this batch.`;
+                const employee = await db.prepare("SELECT full_name FROM employees WHERE id = ? AND status = 'active'").get(employeeId);
+                if (!employee) return `Worker ${index + 1}: select an active employee.`;
+                employeeIds.add(employeeId);
+                name = employee.full_name;
+            } else if (row.worker_type === 'new' || row.worker_type === undefined) {
+                name = typeof row.worker_name === 'string' ? row.worker_name.trim() : '';
+                if (!name || name.length > 191) return `Worker ${index + 1}: enter a candidate name of up to 191 characters.`;
+            } else {
+                return `Worker ${index + 1}: choose a worker source.`;
+            }
+            slot.count--;
+            workers.push({ positionId, employeeId, name });
+        }
+
+        const insertAllocation = db.prepare(`
             INSERT INTO manpower_allocations (request_id, request_position_id, employee_id, worker_name, allocated_by, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, 'proposed', UTC_TIMESTAMP(), UTC_TIMESTAMP())
-        `).run(id, position.id, assignedEmpId, nameStr, user.id);
+        `);
+        const allocationIds = [];
+        for (const worker of workers) {
+            const allocation = await insertAllocation.run(id, worker.positionId, worker.employeeId, worker.name, user.id);
+            allocationIds.push(allocation.lastInsertRowid);
+        }
+        const count = workers.length;
+        const label = count === 1 ? 'worker' : 'workers';
         await db.prepare(`
             INSERT INTO manpower_request_entries (request_id, author_id, author_role, content, entry_type, created_at)
             VALUES (?, ?, ?, ?, 'allocation', UTC_TIMESTAMP())
-        `).run(id, user.id, user.role, `${nameStr} was sent to the coordinator. Awaiting office report.`);
+        `).run(id, user.id, user.role, `HR sent ${count} ${label} to the coordinator. Awaiting office reports.`);
         await syncRequestStatus(id);
-        return allocation.lastInsertRowid;
+        await createNotification(
+            request.requested_by,
+            `Workers Assigned to Request #${id}`,
+            `HR sent ${count} ${label} for your review upon arrival.`,
+            destination,
+            `mp-alloc-${allocationIds[0]}`
+        );
+        await logAction(user.id, 'ALLOCATE_WORKERS', 'manpower_requests', id, { allocationIds });
+        return null;
     })();
-    if (!allocationId) {
-        req.flash('error', 'Select a requested position on an open request.');
-        return res.redirect(`/manpower/${id}`);
-    }
 
-    // Notify coordinator
-    (await createNotification(
-        request.requested_by,
-        `Worker Assigned to Request #${id}`,
-        `HR assigned candidate "${nameStr}" for your review upon arrival.`,
-        `/manpower/${id}`,
-        `mp-alloc-${allocationId}`
-    ));
-
-    (await logAction(user.id, 'ALLOCATE_WORKER', 'manpower_allocations', allocationId, { requestId: id, worker: nameStr }));
-
-    req.flash('success', `Assigned worker "${nameStr}". Awaiting coordinator confirmation.`);
-    res.redirect(`/manpower/${id}`);
+    if (error) req.flash('error', error);
+    else req.flash('success', `Sent ${rows.length} ${rows.length === 1 ? 'worker' : 'workers'}. Awaiting coordinator confirmation.`);
+    res.redirect(destination);
 });
 
 // POST /manpower/:id/confirm-arrival (Coordinator confirms arrival + sets actual position/schedule)

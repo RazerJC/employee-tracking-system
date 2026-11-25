@@ -259,8 +259,8 @@ router.get('/:id', requireAuth, async (req, res) => {
         return res.status(403).render('error', { title: 'Access Denied', message: 'You can only access employees within your assigned area.', code: 403 });
     }
 
-    // Historical attendance summary
-    const attendanceStats = (await db.prepare(`
+    const showAttendance = req.session.user.role !== 'ADMIN';
+    const attendanceStats = showAttendance ? await db.prepare(`
         SELECT 
             COUNT(*) as total_records,
             SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_count,
@@ -272,17 +272,17 @@ router.get('/:id', requireAuth, async (req, res) => {
             SUM(CASE WHEN status = 'rest_day' THEN 1 ELSE 0 END) as restday_count
         FROM employee_attendance
         WHERE employee_id = ?
-    `).get(id));
+    `).get(id) : null;
 
     // Recent attendance
-    const recentAttendance = (await db.prepare(`
+    const recentAttendance = showAttendance ? await db.prepare(`
         SELECT ea.*, u.full_name as recorded_by_name
         FROM employee_attendance ea
         LEFT JOIN users u ON ea.recorded_by = u.id
         WHERE ea.employee_id = ?
         ORDER BY ea.work_date DESC
         LIMIT 10
-    `).all(id));
+    `).all(id) : [];
 
     // BTW cases
     const btwCases = (await db.prepare(`
@@ -300,6 +300,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     res.render('employees/view', {
         title: `${employee.full_name} - Employee Details`,
         employee,
+        showAttendance,
         attendanceStats,
         recentAttendance,
         btwCases,

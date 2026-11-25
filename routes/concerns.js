@@ -3,6 +3,8 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { validateAreaAccess } = require('../middleware/area-guard');
 const { getDb } = require('../db/database');
+const { pendingCategories } = require('../services/pending-work');
+const pendingStatuses = pendingCategories.find(category => category.path === '/concerns').statuses;
 const { logAction } = require('../services/audit');
 const { notifyHR, createNotification } = require('../services/notification');
 
@@ -21,7 +23,10 @@ router.get('/', requireAuth, async (req, res) => {
         params.push(selectedAreaId);
     }
 
-    if (statusFilter) {
+    if (statusFilter === 'pending') {
+        where.push('c.status IN (' + pendingStatuses.map(() => '?').join(', ') + ')');
+        params.push(...pendingStatuses);
+    } else if (statusFilter) {
         where.push('c.status = ?');
         params.push(statusFilter);
     }
@@ -158,11 +163,67 @@ router.get('/:id', requireAuth, async (req, res) => {
         ORDER BY ce.created_at ASC
     `).all(id));
 
+    const canViewDecision = user.role !== 'COORDINATOR' || user.id === concern.reported_by;
     res.render('concerns/view', {
         title: `Concern: ${concern.employee_name} - TAASCOR`,
         concern,
-        entries
+        entries,
+        canViewDecision,
+        decisions: canViewDecision ? await db.prepare(`
+            SELECT d.*, u.full_name AS decided_by_name
+            FROM concern_decisions d JOIN users u ON u.id = d.decided_by
+            WHERE d.concern_id = ?
+            ORDER BY d.id DESC
+        `).all(id) : []
     });
+});
+
+router.post('/:id/decision', requireAuth, async (req, res) => {
+    const user = req.session.user;
+    if (user.role !== 'HR') {
+        return res.status(403).render('error', { title: 'Access Denied', message: 'Only HR can record a concern decision.', code: 403 });
+    }
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) {
+        req.flash('error', 'Concern report not found.');
+        return res.redirect('/concerns');
+    }
+
+    const fields = ['policy_violation', 'sanction', 'work_status'];
+    const values = fields.map(field => typeof req.body[field] === 'string' ? req.body[field].trim() : '');
+    if (values.some(value => !value || value.length > 255)) {
+        req.flash('error', 'Enter the policy violation, sanction, and work status using up to 255 characters each.');
+        return res.redirect(`/concerns/${id}#hr-decision`);
+    }
+
+    const db = getDb();
+    const saved = await db.transaction(async () => {
+        const concern = await db.prepare('SELECT area_id, reported_by FROM concern_reports WHERE id = ? FOR UPDATE').get(id);
+        if (!concern) return false;
+        if (!validateAreaAccess(concern.area_id, req)) return false;
+
+        const decision = await db.prepare(`
+            INSERT INTO concern_decisions (concern_id, decided_by, policy_violation, sanction, work_status, created_at)
+            VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())
+        `).run(id, user.id, ...values);
+        await db.prepare('UPDATE concern_reports SET updated_at = UTC_TIMESTAMP() WHERE id = ?').run(id);
+        await createNotification(
+            concern.reported_by,
+            'HR Decision on Employee Concern',
+            `HR recorded a decision on concern #${id}. Open the case to view the details.`,
+            `/concerns/${id}#hr-decision`,
+            `concern-decision-${decision.lastInsertRowid}`
+        );
+        await logAction(user.id, 'RECORD_CONCERN_DECISION', 'concern_reports', id, { decision_id: decision.lastInsertRowid });
+        return true;
+    })();
+
+    if (!saved) {
+        req.flash('error', 'Concern report not found or unavailable.');
+        return res.redirect('/concerns');
+    }
+    req.flash('success', 'HR decision saved and the reporting coordinator was notified.');
+    res.redirect(`/concerns/${id}#hr-decision`);
 });
 
 // POST /concerns/:id/reply (Add update or HR instruction)

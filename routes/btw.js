@@ -3,6 +3,8 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { validateAreaAccess } = require('../middleware/area-guard');
 const { getDb } = require('../db/database');
+const { pendingCategories } = require('../services/pending-work');
+const pendingStatuses = pendingCategories.find(category => category.path === '/btw').statuses;
 const { validateDecision } = require('../services/employee-status');
 const { logAction } = require('../services/audit');
 const { createNotification, notifyHR } = require('../services/notification');
@@ -46,7 +48,7 @@ router.get('/', requireAuth, async (req, res) => {
     for (const row of statsRows) {
         const c = Number(row.c) || 0;
         counts.summary += c;
-        if (['pending_hr_review', 'for_clarification'].includes(row.status)) {
+        if (pendingStatuses.includes(row.status)) {
             counts.pending += c;
         }
         if (row.status === 'approved') {
@@ -73,7 +75,8 @@ router.get('/', requireAuth, async (req, res) => {
     }
 
     if (currentTab === 'pending') {
-        where.push("b.status IN ('pending_hr_review', 'for_clarification')");
+        where.push('b.status IN (' + pendingStatuses.map(() => '?').join(', ') + ')');
+        params.push(...pendingStatuses);
     } else if (currentTab === 'approved') {
         where.push("b.status = 'approved'");
     } else if (currentTab === 'summary') {

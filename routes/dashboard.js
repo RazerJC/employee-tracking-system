@@ -3,6 +3,8 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { requireArea } = require('../middleware/area-guard');
 const { getDb } = require('../db/database');
+const { pendingCategories, getPendingCounts, getPendingRecords } = require('../services/pending-work');
+const { getManpowerDashboard } = require('../services/manpower');
 const { DateTime } = require('luxon');
 
 // GET /dashboard
@@ -133,57 +135,130 @@ router.get('/', requireAuth, async (req, res) => {
     if (user.role === 'HEAD_HR') return res.redirect('/coordinator-attendance');
 
     if (user.role === 'ADMIN') {
-        const staff = await db.prepare(`
- SELECT u.id,u.full_name,u.email,u.role,u.status, ca.time_in,ca.time_out,
- (SELECT action FROM audit_logs WHERE user_id=u.id ORDER BY created_at DESC,id DESC LIMIT 1) AS latest_action
- FROM users u LEFT JOIN coordinator_attendance ca ON ca.user_id=u.id AND ca.work_date=?
- WHERE u.role IN ('HR','HEAD_HR','COORDINATOR') ORDER BY u.role,u.full_name
- `).all(today);
-        // Total stats
-        const totalEmployees = (await db.prepare("SELECT COUNT(*) as count FROM employees WHERE status = 'active'").get()).count;
-        const totalAreas = (await db.prepare("SELECT COUNT(*) as count FROM areas WHERE is_active = 1").get()).count;
-        const totalUsers = (await db.prepare("SELECT COUNT(*) as count FROM users WHERE status = 'active'").get()).count;
-        const pendingAccounts = (await db.prepare("SELECT COUNT(*) as count FROM users WHERE status = 'pending'").get()).count;
+        const areas = await db.prepare('SELECT id, name FROM areas ORDER BY name, id').all();
+        const areaId = areas.find(area => String(area.id) === req.query.area_id)?.id;
+        const mode = req.query.by === 'coordinator' ? 'coordinator' : 'department';
+        const pendingCategory = pendingCategories.find(category => category.key === req.query.pending);
+        const [departments, coordinators, pendingCounts, pendingRecords, manpowerDashboard] = await Promise.all([
+            db.prepare(`
+                SELECT a.id AS area_id, a.name AS area_name, d.id AS department_id, d.name AS department_name,
+                       u.id AS coordinator_id, u.full_name AS coordinator_name,
+                       COUNT(e.id) AS worker_count
+                FROM departments d
+                JOIN areas a ON a.id = d.area_id
+                LEFT JOIN employees e ON e.department_id = d.id AND e.area_id = a.id AND e.status = 'active'
+                LEFT JOIN users u ON u.id = e.coordinator_id AND u.role = 'COORDINATOR'
+                GROUP BY a.id, a.name, d.id, d.name, u.id, u.full_name
 
-        // Area summaries
-        const areaSummaries = (await db.prepare(`
-            SELECT a.id, a.name,
-                   (SELECT COUNT(*) FROM employees WHERE area_id = a.id AND status = 'active') as active_workers,
-                   (SELECT u.full_name FROM coordinator_area_assignments caa JOIN users u ON caa.user_id = u.id WHERE caa.area_id = a.id AND caa.is_current = 1 LIMIT 1) as current_coordinator,
-                   (SELECT COUNT(*) FROM employee_attendance ea JOIN employees e ON ea.employee_id = e.id WHERE e.area_id = a.id AND ea.work_date = ? AND ea.status = 'present') as present_today,
-                   (SELECT COUNT(*) FROM employee_attendance ea JOIN employees e ON ea.employee_id = e.id WHERE e.area_id = a.id AND ea.work_date = ? AND ea.status = 'absent') as absent_today
-            FROM areas a
-            WHERE a.is_active = 1
-            ORDER BY a.name ASC
-        `).all(today, today));
+                UNION ALL
 
-        // System pending actions
-        const pendingBtwCount = (await db.prepare("SELECT COUNT(*) as count FROM btw_cases WHERE status IN ('pending_hr_review', 'for_clarification')").get()).count;
-        const openConcernsCount = (await db.prepare("SELECT COUNT(*) as count FROM concern_reports WHERE status != 'resolved'").get()).count;
-        const openRequestsCount = (await db.prepare("SELECT COUNT(*) as count FROM manpower_requests WHERE status NOT IN ('filled', 'declined', 'cancelled')").get()).count;
-
-        // Recent audit events
-        const recentAudit = (await db.prepare(`
-            SELECT a.*, u.full_name, u.role
-            FROM audit_logs a
-            LEFT JOIN users u ON a.user_id = u.id
-            ORDER BY a.created_at DESC
-            LIMIT 10
-        `).all());
+                SELECT a.id, a.name, NULL, NULL, u.id, u.full_name, COUNT(e.id)
+                FROM employees e
+                JOIN areas a ON a.id = e.area_id
+                LEFT JOIN departments d ON d.id = e.department_id AND d.area_id = a.id
+                LEFT JOIN users u ON u.id = e.coordinator_id AND u.role = 'COORDINATOR'
+                WHERE e.status = 'active' AND d.id IS NULL
+                GROUP BY a.id, a.name, u.id, u.full_name
+                ORDER BY area_name, department_name, coordinator_name
+            `).all(),
+            db.prepare(`
+                SELECT u.id, u.full_name, u.status, a.id AS assigned_area_id, a.name AS assigned_area
+                FROM users u
+                LEFT JOIN coordinator_area_assignments ca ON ca.id = (
+                    SELECT assignment.id FROM coordinator_area_assignments assignment
+                    WHERE assignment.user_id = u.id AND assignment.is_current = 1
+                    ORDER BY assignment.assigned_at DESC, assignment.id DESC LIMIT 1
+                )
+                LEFT JOIN areas a ON a.id = ca.area_id
+                WHERE u.role = 'COORDINATOR'
+                ORDER BY u.full_name, u.id
+            `).all(),
+            areaId ? getPendingCounts(db, areaId) : res.locals.menuGlow,
+            pendingCategory ? getPendingRecords(db, pendingCategory, areaId) : [],
+            !pendingCategory && !req.query.group ? getManpowerDashboard(db, areaId) : null
+        ]);
+        const rows = departments.filter(row => !areaId || row.area_id === areaId);
+        const groups = new Map();
+        if (mode === 'coordinator') {
+            for (const coordinator of coordinators) {
+                if (!areaId || coordinator.assigned_area_id === areaId || rows.some(row => row.coordinator_id === coordinator.id)) {
+                    groups.set(String(coordinator.id), {
+                        key: String(coordinator.id), label: coordinator.full_name, area: coordinator.assigned_area,
+                        assignedAreaId: coordinator.assigned_area_id, href: '/admin/staff/' + coordinator.id, count: 0, rows: []
+                    });
+                }
+            }
+        }
+        if (mode === 'department') {
+            for (const area of areas.filter(area => !areaId || area.id === areaId)) {
+                const key = String(area.id);
+                groups.set(key, { key, label: area.name, count: 0, rows: [] });
+            }
+        }
+        for (const row of rows) {
+            if (mode === 'coordinator' && !row.worker_count) continue;
+            const key = mode === 'coordinator' ? String(row.coordinator_id ?? 'unassigned') : String(row.area_id);
+            if (!groups.has(key)) groups.set(key, { key, label: 'Unassigned Coordinator', count: 0, rows: [] });
+            const group = groups.get(key);
+            group.count += Number(row.worker_count);
+            group.rows.push(row);
+        }
+        const workforce = [...groups.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+        const selectedGroup = pendingCategory ? null : groups.get(req.query.group);
+        const warehouseGroups = new Map();
+        if (selectedGroup) {
+            for (const row of selectedGroup.rows) {
+                const key = String(row.area_id);
+                if (!warehouseGroups.has(key)) warehouseGroups.set(key, { key, label: row.area_name, count: 0, rows: [] });
+                const warehouse = warehouseGroups.get(key);
+                warehouse.count += Number(row.worker_count);
+                warehouse.rows.push(row);
+            }
+            if (mode === 'department' && !warehouseGroups.size) {
+                warehouseGroups.set(selectedGroup.key, { key: selectedGroup.key, label: selectedGroup.label, count: 0, rows: [] });
+            }
+            if (mode === 'coordinator' && selectedGroup.assignedAreaId && (!areaId || selectedGroup.assignedAreaId === areaId)) {
+                const key = String(selectedGroup.assignedAreaId);
+                if (!warehouseGroups.has(key)) warehouseGroups.set(key, { key, label: selectedGroup.area, count: 0, rows: [] });
+            }
+        }
+        const warehouses = [...warehouseGroups.values()];
+        const selectedWarehouse = warehouses.length === 1 ? warehouses[0] : warehouseGroups.get(req.query.warehouse);
+        const departmentGroups = new Map();
+        if (mode === 'coordinator' && selectedWarehouse) {
+            for (const row of rows) {
+                if (String(row.area_id) !== selectedWarehouse.key || !row.department_id) continue;
+                const key = String(row.department_id);
+                departmentGroups.set(key, { key, label: row.department_name, count: 0 });
+            }
+        }
+        for (const row of selectedWarehouse?.rows || []) {
+            const key = String(row.department_id ?? 'unassigned');
+            if (!departmentGroups.has(key)) departmentGroups.set(key, { key, label: row.department_name || 'No Department', count: 0 });
+            departmentGroups.get(key).count += Number(row.worker_count);
+        }
+        const selectedDepartment = departmentGroups.get(req.query.department);
+        let assignedWorkers = [];
+        if (selectedDepartment) {
+            const params = [Number(selectedWarehouse.key), selectedDepartment.key === 'unassigned' ? null : Number(selectedDepartment.key)];
+            if (mode === 'coordinator') params.push(selectedGroup.key === 'unassigned' ? null : Number(selectedGroup.key));
+            assignedWorkers = await db.prepare(`
+                SELECT e.id, e.full_name, u.full_name AS coordinator_name
+                FROM employees e
+                LEFT JOIN departments d ON d.id = e.department_id AND d.area_id = e.area_id
+                LEFT JOIN users u ON u.id = e.coordinator_id AND u.role = 'COORDINATOR'
+                WHERE e.status = 'active' AND e.area_id = ? AND d.id <=> ?
+                ${mode === 'coordinator' ? 'AND u.id <=> ?' : ''}
+                ORDER BY e.full_name, e.id
+            `).all(...params);
+        }
 
         return res.render('dashboard/admin', {
             title: 'Admin Dashboard - TAASCOR',
-            today,
-            staff,
-            totalEmployees,
-            totalAreas,
-            totalUsers,
-            pendingAccounts,
-            pendingBtwCount,
-            openConcernsCount,
-            openRequestsCount,
-            areaSummaries,
-            recentAudit
+            areas, areaId, mode, workforce,
+            selectedGroup, warehouses, selectedWarehouse, departmentGroups: [...departmentGroups.values()], selectedDepartment, assignedWorkers,
+            pendingCategories, pendingCounts, pendingCategory, pendingRecords,
+            manpowerDashboard: !pendingCategory && !selectedGroup ? (manpowerDashboard || await getManpowerDashboard(db, areaId)) : null
         });
     }
 

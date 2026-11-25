@@ -4,10 +4,6 @@
 <% if (staff.profile_photo && /^(data:image\/(png|jpeg|webp);base64,|\/uploads\/)/.test(staff.profile_photo)) { %><img src="<%= staff.profile_photo %>" alt="Profile photo" style="width:88px;height:88px;object-fit:cover;border-radius:50%;"><% } %>
 <p><strong>Email:</strong> <%= staff.email %></p><p><strong>Phone:</strong> <%= staff.phone || 'Not provided' %></p><p><strong>About:</strong> <%= staff.bio || 'No biography added.' %></p><p><strong>Last login:</strong> <%= staff.last_login_at ? formatDateTime(staff.last_login_at) : 'No login recorded' %></p>
 </div></div>
-<div class="card mb-3"><div class="card-header"><h3>Attendance · Latest 30 records</h3></div><div class="table-responsive"><table class="data-table"><thead><tr><th>Date</th><th>Time in</th><th>Time out</th></tr></thead><tbody>
-<% if (!attendance.length) { %><tr><td colspan="3">No attendance recorded.</td></tr><% } %>
-<% attendance.forEach(a=>{ %><tr><td><%= formatDate(a.work_date) %></td><td><%= a.time_in ? formatTime(a.time_in) : '—' %></td><td><%= a.time_out ? formatTime(a.time_out) : '—' %></td></tr><% }) %>
-</tbody></table></div></div>
 <div class="card"><div class="card-header"><h3>Recorded activity · Latest 50 events</h3></div><div class="table-responsive"><table class="data-table"><thead><tr><th>When</th><th>Action</th><th>Record</th></tr></thead><tbody>
 <% if (!activities.length) { %><tr><td colspan="3">No activity recorded.</td></tr><% } %>
 <% activities.forEach(a=>{ %><tr><td><%= formatDateTime(a.created_at) %></td><td><%= a.action.replaceAll('_',' ') %></td><td><%= a.entity_type || '—' %> <%= a.entity_id || '' %></td></tr><% }) %>

@@ -1,135 +1,132 @@
-<%- include('../partials/layout-top') %>
+<%- include('../partials/layout-top', { pageStylesheet: '/css/admin-overview.css' }) %>
 
-<%- include('../partials/dashboard-hero', {
-    eyebrow: 'People and operations',
-    headline: 'One connected team, across every workplace.',
-    description: 'A shared view of HR and coordinator attendance, employee records, warehouse operations, and daily activity inside TAASCOR ETS.',
-    contextTitle: 'System administrator workspace',
-    contextText: 'Oversee your teams, manage account access, and follow operations across all assigned warehouses.'
-}) %>
+<%
+    function dashboardUrl(changes = {}, focusDetails = false) {
+        const params = new URLSearchParams();
+        if (areaId) params.set('area_id', areaId);
+        if (mode === 'coordinator') params.set('by', mode);
+        for (const [key, value] of Object.entries(changes)) {
+            if (value) params.set(key, value);
+            else params.delete(key);
+        }
+        return '/dashboard' + (params.size ? '?' + params : '') + (focusDetails ? '#overview-detail' : '');
+    }
+    const pendingBars = pendingCategories.map(category => ({
+        label: category.label,
+        caption: areaId && category.key === 'accounts' ? 'All warehouses' : '',
+        count: pendingCounts[category.path] || 0,
+        href: dashboardUrl({ pending: category.key }, true),
+        selected: pendingCategory?.key === category.key
+    }));
+    const workforceBars = workforce.map(group => ({
+        label: group.label,
+        caption: !areaId && group.area ? group.area : '',
+        count: group.count,
+        href: dashboardUrl({ group: group.key }, true),
+        selected: selectedGroup?.key === group.key
+    }));
+    const detail = pendingCategory || selectedGroup;
+    const drill = { group: selectedGroup?.key, warehouse: warehouses.length > 1 ? selectedWarehouse?.key : null };
+    const backUrl = selectedDepartment ? dashboardUrl(drill, true)
+        : selectedWarehouse && warehouses.length > 1 ? dashboardUrl({ group: selectedGroup.key }, true)
+        : dashboardUrl();
+    const categoryUrl = pendingCategory
+        ? pendingCategory.path + (pendingCategory.filter || '') + (areaId && pendingCategory.filter ? '&area_id=' + areaId : '')
+        : null;
+%>
 
-<!-- Summary Cards -->
-<div class="summary-cards">
-    <div class="summary-card">
-        <div class="card-icon navy"><%- include('../partials/outline-icon', {icon:'people'}) %></div>
-        <div class="card-data">
-            <h4><%= staff.filter(s => s.status === "active").length %></h4>
-            <p>Active HR & Coordinators</p>
-        </div>
+<section class="admin-overview">
+    <div class="admin-overview-heading">
+        <h2>Admin Overview</h2>
+        <% if (!detail) { %>
+        <form class="admin-overview-filter" method="GET" action="/dashboard">
+            <% if (mode === 'coordinator') { %><input type="hidden" name="by" value="coordinator"><% } %>
+            <label for="overview-warehouse">Warehouse</label>
+            <select id="overview-warehouse" name="area_id" class="form-control">
+                <option value="">All warehouses</option>
+                <% areas.forEach(area => { %>
+                    <option value="<%= area.id %>" <%= area.id === areaId ? 'selected' : '' %>><%= area.name %></option>
+                <% }); %>
+            </select>
+            <button type="submit" class="btn btn-sm btn-outline">Apply</button>
+        </form>
+        <% } %>
     </div>
 
-    <div class="summary-card">
-        <div class="card-icon blue"><%- include('../partials/outline-icon', {icon:'building'}) %></div>
-        <div class="card-data">
-            <h4><%= totalAreas %></h4>
-            <p>Active Warehouses</p>
-        </div>
-    </div>
+    <% if (!detail) { %>
+    <div class="admin-overview-grid">
+        <section class="admin-chart admin-pending-chart" aria-labelledby="pending-chart-title">
+            <header class="admin-chart-heading">
+                <h3 id="pending-chart-title">Pending Work</h3>
+                <strong><%= pendingBars.reduce((total, bar) => total + bar.count, 0) %></strong>
+            </header>
+            <%- include('admin-bars', { bars: pendingBars }) %>
+        </section>
 
-    <div class="summary-card">
-        <div class="card-icon green"><%- include('../partials/outline-icon', {icon:'person'}) %></div>
-        <div class="card-data">
-            <h4><%= totalUsers %></h4>
-            <p>Active Accounts</p>
-        </div>
-    </div>
+        <section class="admin-chart admin-workforce-chart" aria-labelledby="workforce-chart-title">
+            <header class="admin-chart-heading">
+                <h3 id="workforce-chart-title">Workforce</h3>
+                <strong><%= workforce.reduce((total, group) => total + group.count, 0) %> <small>active</small></strong>
+            </header>
+            <nav class="admin-chart-switch" aria-label="Group workforce by">
+                <a href="<%= dashboardUrl({ by: 'department', group: areaId }, Boolean(areaId)) %>" <%= mode === 'department' ? 'aria-current=true' : '' %>>By Department</a>
+                <a href="<%= dashboardUrl({ by: 'coordinator' }) %>" <%= mode === 'coordinator' ? 'aria-current=true' : '' %>>By Coordinator</a>
+            </nav>
+            <%- include('admin-bars', { bars: workforceBars }) %>
+        </section>
 
-    <div class="summary-card">
-        <div class="card-icon yellow"><%- include('../partials/outline-icon', {icon:'hourglass'}) %></div>
-        <div class="card-data">
-            <h4><%= pendingAccounts %></h4>
-            <p>Pending Registrations</p>
-        </div>
     </div>
-</div>
-
-<%- include('../partials/dashboard-shortcuts', { shortcuts: [
-    { href: '/coordinator-attendance', label: 'Staff attendance' },
-    { href: '/admin/users', label: 'User management' },
-    { href: '/admin/areas', label: 'Warehouses and areas' },
-    { href: '/admin/audit-logs', label: 'Audit trail' }
-] }) %>
-<div class="card mb-3">
- <div class="card-header"><h3>My Team — HR & Coordinators</h3><a class="btn btn-sm btn-outline" href="/coordinator-attendance">Attendance history</a></div>
- <div class="card-body"><p>Today's shift · <%= formatDate(today) %> · Asia/Manila</p></div>
- <div class="table-responsive"><table class="data-table"><thead><tr><th>Staff member</th><th>Role / Account</th><th>Time in</th><th>Time out</th><th>Shift</th><th>Latest recorded activity</th></tr></thead><tbody>
- <% if (!staff.length) { %><tr><td colspan="6">No HR or coordinator accounts yet.</td></tr><% } %>
- <% staff.forEach(s => { %><tr><td><a href="/admin/staff/<%= s.id %>"><strong><%= s.full_name %></strong></a><br><small><%= s.email %></small></td><td><%= s.role %><br><small><%= s.status %></small></td><td><%= s.time_in ? formatTime(s.time_in) : '—' %></td><td><%= s.time_out ? formatTime(s.time_out) : '—' %></td><td><%= s.time_out ? 'Completed' : s.time_in ? 'On duty' : 'No time-in recorded' %></td><td><%= s.latest_action ? s.latest_action.replaceAll('_', ' ') : 'No recorded activity' %></td></tr><% }) %>
- </tbody></table></div>
-</div>
-<div class="card mb-3"><div class="card-header"><h3>Manpower Requests</h3><a href="/manpower" class="btn btn-sm btn-primary">Monitor requests</a></div><div class="card-body"><%= openRequestsCount %> open requests. Review HR allocations and coordinator arrival confirmations.</div></div>
-<!-- Cross-Area Operations Table -->
-<div class="card mb-3">
-    <div class="card-header">
-        <h3>🏢 Area & Warehouse Operations Summary</h3>
-        <a href="/admin/areas" class="btn btn-sm btn-outline">Manage Warehouses</a>
+    <div class="admin-deployment-summary" style="margin-top: 18px;">
+        <%- include('../partials/manpower-dashboard') %>
     </div>
-    <div class="card-body" style="padding: 0;">
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Warehouse / Area</th>
-                        <th>Assigned Coordinator</th>
-                        <th>Active Workforce</th>
-                        <th>Present Today</th>
-                        <th>Absent Today</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% areaSummaries.forEach(a => { %>
-                        <tr>
-                            <td><strong><%= a.name %></strong></td>
-                            <td><%= a.current_coordinator || 'Unassigned' %></td>
-                            <td><span class="badge badge-primary"><%= a.active_workers %> Workers</span></td>
-                            <td><span style="color: var(--color-success); font-weight: 600;"><%= a.present_today %></span></td>
-                            <td><span style="<%= a.absent_today > 0 ? 'color: var(--color-danger); font-weight: 700;' : 'color: var(--color-gray-400);' %>"><%= a.absent_today %></span></td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Recent System Audit Events -->
-<div class="card">
-    <div class="card-header">
-        <h3>📜 Recent Audit Trail</h3>
-        <a href="/admin/audit-logs" class="btn btn-sm btn-outline">View Full Audit Logs</a>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>User</th>
-                        <th>Role</th>
-                        <th>Action</th>
-                        <th>Entity</th>
-                        <th>IP Address</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% if (recentAudit.length === 0) { %>
-                        <tr><td colspan="6" class="text-center">No audit logs recorded yet.</td></tr>
+    <% } else { %>
+            <section class="admin-chart admin-overview-detail" id="overview-detail" tabindex="-1" aria-labelledby="overview-detail-title">
+                <a class="btn btn-sm btn-outline admin-overview-back" href="<%= backUrl %>">← Back</a>
+                <header class="admin-chart-heading">
+                    <h3 id="overview-detail-title"><%= selectedDepartment?.label || detail.label %></h3>
+                </header>
+                <% if (pendingCategory) { %>
+                    <% if (!pendingRecords.length) { %><p class="admin-chart-empty">No pending items in this category.</p><% } %>
+                    <ul class="admin-detail-list">
+                        <% pendingRecords.forEach(record => { %>
+                            <li>
+                                <div>
+                                    <a href="<%= pendingCategory.key === 'accounts' ? categoryUrl : pendingCategory.path + '/' + record.id %>"><%= record.title %></a>
+                                    <small><%= record.area_name || 'All warehouses' %></small>
+                                </div>
+                                <%- include('../partials/status-badge', { status: record.status }) %>
+                            </li>
+                        <% }); %>
+                    </ul>
+                    <% if (pendingCounts[pendingCategory.path] > pendingRecords.length) { %><p>Showing the latest <%= pendingRecords.length %> records.</p><% } %>
+                    <a class="admin-detail-link" href="<%= categoryUrl %>">View category</a>
+                <% } else { %>
+                    <% if (selectedDepartment) { %>
+                        <p class="admin-detail-meta"><%= selectedWarehouse.label %><%= mode === 'coordinator' ? ' · ' + selectedGroup.label : '' %> · <%= assignedWorkers.length %> active workers</p>
+                        <% if (!assignedWorkers.length) { %><p class="admin-chart-empty">No active workers in this department.</p><% } %>
+                        <ul class="admin-detail-list">
+                            <% assignedWorkers.forEach(worker => { %>
+                                <li><div>
+                                    <a href="/employees/<%= worker.id %>"><%= worker.full_name %></a>
+                                    <% if (mode === 'department') { %><small><%= worker.coordinator_name || 'Unassigned Coordinator' %></small><% } %>
+                                </div></li>
+                            <% }); %>
+                        </ul>
+                    <% } else if (selectedWarehouse) { %>
+                        <h4 class="admin-detail-workers-heading">Departments<%= mode === 'coordinator' ? ' · ' + selectedWarehouse.label : '' %></h4>
+                        <%- include('admin-bars', { bars: departmentGroups.map(department => ({
+                            ...department, href: dashboardUrl({ ...drill, department: department.key }, true)
+                        })) }) %>
                     <% } else { %>
-                        <% recentAudit.forEach(log => { %>
-                            <tr>
-                                <td><%= formatDateTime(log.created_at) %></td>
-                                <td><strong><%= log.full_name || 'System' %></strong></td>
-                                <td><span class="badge badge-secondary"><%= log.role || 'SYS' %></span></td>
-                                <td><code style="color: var(--color-primary);"><%= log.action %></code></td>
-                                <td><%= log.entity_type || '—' %> #<%= log.entity_id || '—' %></td>
-                                <td><span class="text-muted"><%= log.ip_address || '—' %></span></td>
-                            </tr>
-                        <% }) %>
+                        <h4 class="admin-detail-workers-heading">Warehouses</h4>
+                        <%- include('admin-bars', { bars: warehouses.map(warehouse => ({
+                            ...warehouse, href: dashboardUrl({ group: selectedGroup.key, warehouse: warehouse.key }, true)
+                        })) }) %>
                     <% } %>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                    <% if (selectedGroup.href) { %><a class="admin-detail-link" href="<%= selectedGroup.href %>">View coordinator profile</a><% } %>
+                <% } %>
+            </section>
+    <% } %>
+</section>
 
 <%- include('../partials/layout-bottom') %>

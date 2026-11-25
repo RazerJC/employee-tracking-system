@@ -46,10 +46,7 @@
         <% coordinators.slice(0,5).forEach(c => { %><div class="hr-compact-row"><div><strong><%= c.full_name %></strong><br><small class="text-muted"><%= c.area_name || 'Unassigned' %></small></div><span><%= c.time_in ? formatDateTime(c.time_in) : 'Not yet timed in' %></span></div><% }) %>
         <% if (!coordinators.length) { %><p>No active coordinators.</p><% } %>
     </div></div>
-    <div class="card"><div class="card-header"><h3>Manpower requests</h3><a href="/manpower" class="btn btn-sm btn-ghost">View all</a></div><div class="card-body">
-        <% manpower.forEach(m => { %><a class="hr-compact-row" href="/manpower/<%= m.id %>"><div><strong><%= m.area_name %> · <%= m.total_requested %> workers</strong><br><small><%= formatDate(m.deployment_date) %></small></div><span><%= m.status.replace(/_/g,' ') %></span></a><% }) %>
-        <% if (!manpower.length) { %><p>No pending manpower requests.</p><% } %>
-    </div></div>
 </div>
+<%- include('../partials/manpower-dashboard') %>
 <script src="/js/hr-dashboard.js"></script>
 <%- include('../partials/layout-bottom') %>

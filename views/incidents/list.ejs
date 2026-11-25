@@ -49,6 +49,7 @@
         <label for="status" style="font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block;">Status</label>
         <select id="status" name="status" class="form-control" onchange="this.form.submit()">
             <option value="">All Statuses</option>
+                <option value="pending" <%= statusFilter === 'pending' ? 'selected' : '' %>>Pending / Active</option>
             <option value="reported" <%= statusFilter === 'reported' ? 'selected' : '' %>>Reported</option>
             <option value="under_investigation" <%= statusFilter === 'under_investigation' ? 'selected' : '' %>>Under Investigation</option>
             <option value="hr_action_taken" <%= statusFilter === 'hr_action_taken' ? 'selected' : '' %>>HR Action Taken</option>
