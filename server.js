@@ -15,6 +15,7 @@ const { getMenuGlow } = require('./services/notification');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret || sessionSecret.length < 32 || sessionSecret.startsWith('change-this')) {
@@ -236,7 +237,7 @@ async function start(port = PORT) {
     await createInitialAdmin();
     
     await sessionStore.onReady();
-    const server = app.listen(Number(port));
+    const server = app.listen(Number(port), HOST);
     await new Promise((resolve, reject) => {
         server.once('error', reject);
         server.once('listening', () => {

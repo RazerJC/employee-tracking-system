@@ -9,7 +9,6 @@ const AREA_NAME = 'SHOPEE PHIXC';
 const COORDINATOR_EMAIL = 'PHIXC@taascor.com';
 const COORDINATOR_NAME = 'PHIXC';
 const TEMP_PASSWORD = process.env.PHIXC_COORDINATOR_PASSWORD || 'Coord123!';
-const TEMP_PASSWORD = process.env.PHIXC_COORDINATOR_PASSWORD || 'Coord123!';
 
 function toDate(value) {
     if (!value) return null;

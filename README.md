@@ -96,6 +96,10 @@ Initial setup creates the first administrator using `ADMIN_EMAIL` and `ADMIN_PAS
 
 ---
 
+## Deployment
+
+Use `.env.deploy.example` as the checklist for Hostinger environment variables. Set the actual values in the hosting panel and follow the deployment guide below.
+
 ## Documentation Links
 
 - [User Guide](docs/user-guide.md)
